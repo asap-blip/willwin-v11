@@ -35,7 +35,7 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
         price
       )
     `)
-    .eq('booking.id', bookingId)
+    .eq('booking_id', bookingId)
     .limit(1)
 
   if (!segments || segments.length === 0) return null
