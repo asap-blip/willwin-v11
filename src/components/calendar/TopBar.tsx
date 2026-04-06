@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDateHeading } from '@/lib/calendar-helpers'
@@ -29,10 +30,15 @@ export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: T
           {formatDateHeading(currentDate)}
         </h1>
       </div>
-      <Button className="gap-2" onClick={onNewBooking}>
-        <Plus className="h-4 w-4" />
-        New Booking
-      </Button>
+      <div className="flex items-center gap-3">
+        <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+          Settings
+        </Link>
+        <Button className="gap-2" onClick={onNewBooking}>
+          <Plus className="h-4 w-4" />
+          New Booking
+        </Button>
+      </div>
     </div>
   )
 }
