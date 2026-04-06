@@ -21,6 +21,7 @@ export interface Customer {
   phone: string | null
   email: string | null
   notes: string | null
+  alert: string | null
 }
 
 export interface Booking {
@@ -37,6 +38,25 @@ export interface AppointmentSegment {
   team_member_id: string
   service_id: string
   duration_minutes: number
+}
+
+export interface BookingDetail {
+  booking_id: string
+  segment_id: string
+  customer_id: string
+  customer_first_name: string
+  customer_last_name: string
+  customer_phone: string | null
+  customer_alert: string | null
+  customer_notes: string | null
+  team_member_id: string
+  service_id: string
+  service_name: string
+  service_price: number
+  duration_minutes: number
+  start_at: string
+  status: string
+  notes: string | null
 }
 
 export interface CalendarBooking {

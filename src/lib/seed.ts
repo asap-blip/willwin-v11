@@ -47,12 +47,12 @@ async function seed() {
   if (svcError) { console.error('services error:', svcError); return }
   console.log('Inserted services:', services!.length)
 
-  // Customers
+  // Customers — alert column must exist in Supabase (TEXT, nullable)
   const { data: customers, error: custError } = await supabase
     .from('customers')
     .insert([
-      { first_name: 'Isabelle', last_name: 'Tremblay', phone: '514-555-0101', email: 'isabelle@example.com', notes: null },
-      { first_name: 'Nathalie', last_name: 'Gagnon', phone: '514-555-0202', email: 'nathalie@example.com', notes: null },
+      { first_name: 'Isabelle', last_name: 'Tremblay', phone: '514-555-0101', email: 'isabelle@example.com', notes: 'Prefers gel over acrylic', alert: 'Allergic to acetone-based removers' },
+      { first_name: 'Nathalie', last_name: 'Gagnon', phone: '514-555-0202', email: 'nathalie@example.com', notes: null, alert: null },
     ])
     .select()
 

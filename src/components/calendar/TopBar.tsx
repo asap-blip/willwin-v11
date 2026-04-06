@@ -9,9 +9,10 @@ interface TopBarProps {
   onPrev: () => void
   onNext: () => void
   onToday: () => void
+  onNewBooking: () => void
 }
 
-export function TopBar({ currentDate, onPrev, onNext, onToday }: TopBarProps) {
+export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: TopBarProps) {
   return (
     <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-white">
       <div className="flex items-center gap-3">
@@ -28,7 +29,7 @@ export function TopBar({ currentDate, onPrev, onNext, onToday }: TopBarProps) {
           {formatDateHeading(currentDate)}
         </h1>
       </div>
-      <Button disabled className="gap-2">
+      <Button className="gap-2" onClick={onNewBooking}>
         <Plus className="h-4 w-4" />
         New Booking
       </Button>

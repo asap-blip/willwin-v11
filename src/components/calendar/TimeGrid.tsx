@@ -15,9 +15,11 @@ import { BookingCard } from './BookingCard'
 interface TimeGridProps {
   teamMembers: TeamMember[]
   bookings: CalendarBooking[]
+  onSlotClick: (teamMemberId: string, time: string) => void
+  onBookingClick: (bookingId: string) => void
 }
 
-export function TimeGrid({ teamMembers, bookings }: TimeGridProps) {
+export function TimeGrid({ teamMembers, bookings, onSlotClick, onBookingClick }: TimeGridProps) {
   const [timeLineOffset, setTimeLineOffset] = useState<number | null>(getCurrentTimeOffset())
 
   // Update current time indicator every 60s
@@ -81,7 +83,7 @@ export function TimeGrid({ teamMembers, bookings }: TimeGridProps) {
                   key={slot}
                   className="absolute inset-x-0 border-b border-border/50 hover:bg-muted/30 cursor-pointer"
                   style={{ top: i * SLOT_HEIGHT, height: SLOT_HEIGHT }}
-                  onClick={() => console.log('empty slot clicked')}
+                  onClick={() => onSlotClick(tm.id, slot)}
                 />
               ))}
 
@@ -91,7 +93,7 @@ export function TimeGrid({ teamMembers, bookings }: TimeGridProps) {
                 const top = timeToOffset(time)
                 return (
                   <div key={booking.id} className="absolute inset-x-0" style={{ top }}>
-                    <BookingCard booking={booking} />
+                    <BookingCard booking={booking} onEdit={onBookingClick} />
                   </div>
                 )
               })}

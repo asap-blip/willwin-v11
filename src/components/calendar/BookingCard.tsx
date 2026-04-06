@@ -12,9 +12,10 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface BookingCardProps {
   booking: CalendarBooking
+  onEdit: (bookingId: string) => void
 }
 
-export function BookingCard({ booking }: BookingCardProps) {
+export function BookingCard({ booking, onEdit }: BookingCardProps) {
   const height = durationToHeight(booking.duration_minutes)
   const statusClass = STATUS_STYLES[booking.status] ?? 'bg-gray-100 text-gray-800'
 
@@ -32,7 +33,7 @@ export function BookingCard({ booking }: BookingCardProps) {
       }}
       onClick={(e) => {
         e.stopPropagation()
-        console.log('booking clicked', booking.id)
+        onEdit(booking.id)
       }}
     >
       <p className="text-xs font-semibold truncate leading-tight text-gray-900">

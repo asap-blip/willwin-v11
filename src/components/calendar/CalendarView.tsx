@@ -6,6 +6,8 @@ import { getTodayString } from '@/lib/calendar-helpers'
 import { fetchBookingsForDate } from '@/lib/fetch-bookings'
 import { TopBar } from './TopBar'
 import { TimeGrid } from './TimeGrid'
+import { NewBookingModal } from '@/components/booking/NewBookingModal'
+import { BookingDetailModal } from '@/components/booking/BookingDetailModal'
 
 interface CalendarViewProps {
   teamMembers: TeamMember[]
@@ -16,6 +18,15 @@ interface CalendarViewProps {
 export function CalendarView({ teamMembers, initialBookings, initialDate }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(initialDate)
   const [bookings, setBookings] = useState<CalendarBooking[]>(initialBookings)
+
+  // New booking modal state
+  const [modalOpen, setModalOpen] = useState(false)
+  const [slotTeamMemberId, setSlotTeamMemberId] = useState('')
+  const [slotTime, setSlotTime] = useState('09:00')
+
+  // Edit booking modal state
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editBookingId, setEditBookingId] = useState<string | null>(null)
 
   // Date navigation — string-only math
   function shiftDate(dateStr: string, days: number): string {
@@ -43,6 +54,22 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
     }
   }, [currentDate, initialDate, initialBookings, loadBookings])
 
+  function openModal(teamMemberId: string, time: string) {
+    setSlotTeamMemberId(teamMemberId)
+    setSlotTime(time)
+    setModalOpen(true)
+  }
+
+  function handleNewBookingButton() {
+    // Default to first team member and 09:00 when opened from TopBar
+    openModal(teamMembers[0]?.id ?? '', '09:00')
+  }
+
+  function handleBookingClick(bookingId: string) {
+    setEditBookingId(bookingId)
+    setEditModalOpen(true)
+  }
+
   return (
     <div className="flex flex-col h-screen">
       <TopBar
@@ -50,8 +77,30 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
         onPrev={() => setCurrentDate((d) => shiftDate(d, -1))}
         onNext={() => setCurrentDate((d) => shiftDate(d, 1))}
         onToday={() => setCurrentDate(getTodayString())}
+        onNewBooking={handleNewBookingButton}
       />
-      <TimeGrid teamMembers={teamMembers} bookings={bookings} />
+      <TimeGrid
+        teamMembers={teamMembers}
+        bookings={bookings}
+        onSlotClick={openModal}
+        onBookingClick={handleBookingClick}
+      />
+      <NewBookingModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => loadBookings(currentDate)}
+        teamMembers={teamMembers}
+        prefilledTeamMemberId={slotTeamMemberId}
+        prefilledDate={currentDate}
+        prefilledTime={slotTime}
+      />
+      <BookingDetailModal
+        open={editModalOpen}
+        bookingId={editBookingId}
+        onClose={() => setEditModalOpen(false)}
+        onSaved={() => loadBookings(currentDate)}
+        teamMembers={teamMembers}
+      />
     </div>
   )
 }
