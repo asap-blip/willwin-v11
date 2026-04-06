@@ -25,7 +25,6 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
           first_name,
           last_name,
           phone,
-          alert,
           notes
         )
       ),
@@ -52,7 +51,7 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
     customer_first_name: customer.first_name as string,
     customer_last_name: customer.last_name as string,
     customer_phone: customer.phone as string | null,
-    customer_alert: customer.alert as string | null,
+    customer_alert: (customer.alert ?? null) as string | null,
     customer_notes: customer.notes as string | null,
     team_member_id: seg.team_member_id as string,
     service_id: service.id as string,
