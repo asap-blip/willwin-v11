@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { X, AlertTriangle, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
@@ -192,9 +193,12 @@ export function BookingDetailModal({
                       <User className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">
+                      <Link
+                        href={`/clients/${detail.customer_id}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
                         {detail.customer_first_name} {detail.customer_last_name}
-                      </p>
+                      </Link>
                       {detail.customer_phone && (
                         <p className="text-sm text-muted-foreground">{detail.customer_phone}</p>
                       )}

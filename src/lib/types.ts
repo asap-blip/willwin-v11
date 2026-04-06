@@ -22,6 +22,9 @@ export interface Customer {
   email: string | null
   notes: string | null
   alert: string | null
+  birthday: string | null
+  referred_by: string | null
+  preferred_tech_id: string | null
 }
 
 export interface Booking {
