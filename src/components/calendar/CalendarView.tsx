@@ -1,21 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { TeamMember, CalendarBooking } from '@/lib/types'
 import { getTodayString } from '@/lib/calendar-helpers'
+import { fetchBookingsForDate } from '@/lib/fetch-bookings'
 import { TopBar } from './TopBar'
 import { TimeGrid } from './TimeGrid'
 
 interface CalendarViewProps {
   teamMembers: TeamMember[]
-  bookings: CalendarBooking[]
+  initialBookings: CalendarBooking[]
   initialDate: string
 }
 
-export function CalendarView({ teamMembers, bookings, initialDate }: CalendarViewProps) {
+export function CalendarView({ teamMembers, initialBookings, initialDate }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(initialDate)
+  const [bookings, setBookings] = useState<CalendarBooking[]>(initialBookings)
 
-  // Date navigation helpers — string-only math
+  // Date navigation — string-only math
   function shiftDate(dateStr: string, days: number): string {
     const y = parseInt(dateStr.slice(0, 4), 10)
     const m = parseInt(dateStr.slice(5, 7), 10) - 1
@@ -27,8 +29,19 @@ export function CalendarView({ teamMembers, bookings, initialDate }: CalendarVie
     return `${ny}-${nm}-${nd}`
   }
 
-  // Filter bookings to current date — slice start_at as string
-  const filtered = bookings.filter((b) => b.start_at.slice(0, 10) === currentDate)
+  const loadBookings = useCallback(async (date: string) => {
+    const data = await fetchBookingsForDate(date)
+    setBookings(data)
+  }, [])
+
+  // Re-fetch when date changes (skip initial — already have server data)
+  useEffect(() => {
+    if (currentDate !== initialDate) {
+      loadBookings(currentDate)
+    } else {
+      setBookings(initialBookings)
+    }
+  }, [currentDate, initialDate, initialBookings, loadBookings])
 
   return (
     <div className="flex flex-col h-screen">
@@ -38,7 +51,7 @@ export function CalendarView({ teamMembers, bookings, initialDate }: CalendarVie
         onNext={() => setCurrentDate((d) => shiftDate(d, 1))}
         onToday={() => setCurrentDate(getTodayString())}
       />
-      <TimeGrid teamMembers={teamMembers} bookings={filtered} />
+      <TimeGrid teamMembers={teamMembers} bookings={bookings} />
     </div>
   )
 }
