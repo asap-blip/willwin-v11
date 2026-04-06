@@ -25,7 +25,6 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
           first_name,
           last_name,
           phone,
-          alert,
           notes
         )
       ),
