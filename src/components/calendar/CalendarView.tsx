@@ -64,6 +64,14 @@ export function CalendarView({
     loadBookings(currentDate)
   }, [currentDate, loadBookings])
 
+  // Bug 2 — refresh bookings when window regains focus so the grid is
+  // current after navigating to a client profile and back.
+  useEffect(() => {
+    const handleFocus = () => loadBookings(currentDate)
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [currentDate, loadBookings])
+
   // Day-of-week derived from current date — getDayOfWeek is the only Date() use here
   const dayOfWeek = useMemo(() => getDayOfWeek(currentDate), [currentDate])
 

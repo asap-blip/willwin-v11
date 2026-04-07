@@ -197,6 +197,7 @@ export function BookingDetailModal({
           'VISIT_SPEND',
           selectedService.price,
           'Auto: visit spend',
+          detail.booking_id,
         )
         // Update last_visit_at to the booking date (sliced — never new Date())
         // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
@@ -216,6 +217,7 @@ export function BookingDetailModal({
           'LATE_CANCEL_PENALTY',
           -10,
           'Auto: late',
+          detail.booking_id,
         )
       }
 
@@ -229,6 +231,7 @@ export function BookingDetailModal({
           'NO_SHOW_PENALTY',
           -25,
           'Auto: no-show',
+          detail.booking_id,
         )
       }
     }

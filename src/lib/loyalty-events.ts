@@ -12,7 +12,23 @@ export async function addLoyaltyEvent(
   eventType: string,
   points: number,
   note?: string,
+  bookingId?: string,
 ) {
+  // Bug 3 — dedupe per booking + event type. If this booking has already
+  // fired this event, skip the insert. The customer aggregates already
+  // include the prior event so there's nothing to recompute.
+  if (bookingId) {
+    const { data: existing } = await supabase
+      .from('loyalty_events')
+      .select('id')
+      .eq('customer_id', customerId)
+      .eq('booking_id', bookingId)
+      .eq('event_type', eventType)
+      .maybeSingle()
+
+    if (existing) return null
+  }
+
   // Insert the event
   // TODO: scope to tenant_id when available
   await supabase.from('loyalty_events').insert({
@@ -20,6 +36,7 @@ export async function addLoyaltyEvent(
     event_type: eventType,
     points,
     note: note ?? null,
+    booking_id: bookingId ?? null,
   })
 
   // Recalculate total points from all events
