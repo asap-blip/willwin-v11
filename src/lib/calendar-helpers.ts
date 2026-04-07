@@ -59,6 +59,17 @@ export function getCurrentTimeOffset(): number | null {
   return (totalMinutes / 30) * SLOT_HEIGHT
 }
 
+// Normalize any Supabase start_at TEXT value to canonical "YYYY-MM-DD HH:MM"
+// (16 chars, space separator, no seconds, no timezone). Strict slice — never new Date().
+//
+// Supabase can return start_at with either a 'T' or space separator and may
+// include trailing seconds. String comparisons fail across mixed forms (e.g.
+// 'T' = 0x54 > ' ' = 0x20), which silently broke T-BUG-01 conflict detection.
+// Always run untrusted start_at strings through this before comparing.
+export function normalizeStartAt(startAt: string): string {
+  return `${startAt.slice(0, 10)} ${startAt.slice(11, 16)}`
+}
+
 // Add minutes to a "YYYY-MM-DD HH:MM" string — string-only arithmetic, never new Date()
 export function addMinutesToTimeString(startAt: string, minutes: number): string {
   const datePart = startAt.slice(0, 10)

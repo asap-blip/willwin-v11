@@ -9,6 +9,7 @@ import {
   formatTimeLabel,
   roundToSlot,
   addMinutesToTimeString,
+  normalizeStartAt,
   generateTimeSlots,
   getDayOfWeek,
   isTechAvailable,
@@ -163,10 +164,13 @@ export function NewBookingModal({
 
       if (cancelled) return
 
-      // Check overlap using string comparison — works because format is consistent
+      // Check overlap using string comparison. Both sides MUST be in canonical
+      // "YYYY-MM-DD HH:MM" form — Supabase can return start_at with a 'T'
+      // separator or trailing seconds, and char-level compare against the
+      // space-separated newEndAt then silently misfires (T-BUG-01 root cause).
       const hasConflict = (segments ?? []).some((seg) => {
         const booking = seg.booking as unknown as { start_at: string }
-        const existingStart = booking.start_at
+        const existingStart = normalizeStartAt(booking.start_at)
         const existingEnd = addMinutesToTimeString(existingStart, seg.duration_minutes)
         // Overlap: existingStart < newEnd AND existingEnd > newStart
         return existingStart < newEndAt && existingEnd > newStartAt
