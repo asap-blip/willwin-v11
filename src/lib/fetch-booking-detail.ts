@@ -69,7 +69,9 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
 
 /**
  * Fetch visit count + last visit date for a customer.
- * Only counts CONFIRMED or ARRIVED bookings.
+ * T-BUG-02 — Only ARRIVED counts as a visit. CONFIRMED means "SMS yes,
+ * hasn't shown up yet" and PENDING means "awaiting reply" — neither is
+ * a real visit.
  */
 export async function fetchCustomerVisitStats(customerId: string): Promise<{
   visitCount: number
@@ -80,7 +82,7 @@ export async function fetchCustomerVisitStats(customerId: string): Promise<{
     .from('bookings')
     .select('start_at', { count: 'exact' })
     .eq('customer_id', customerId)
-    .in('status', ['CONFIRMED', 'ARRIVED'])
+    .eq('status', 'ARRIVED')
     .order('start_at', { ascending: false })
     .limit(1)
 

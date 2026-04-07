@@ -17,7 +17,9 @@ import { fetchBookingDetail, fetchCustomerVisitStats } from '@/lib/fetch-booking
 import { addLoyaltyEvent } from '@/lib/loyalty-events'
 import { TierBadge } from '@/components/loyalty/TierBadge'
 
-const EDITABLE_STATUSES = ['CONFIRMED', 'ARRIVED', 'LATE', 'NO SHOW']
+// T-BUG-02 — booking status lifecycle. CANCELLED is set ONLY by the
+// "Cancel Booking" button, never via this dropdown.
+const EDITABLE_STATUSES = ['PENDING', 'CONFIRMED', 'ARRIVED', 'LATE', 'NO SHOW']
 
 interface BookingDetailModalProps {
   open: boolean
@@ -51,7 +53,7 @@ export function BookingDetailModal({
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [serviceId, setServiceId] = useState('')
-  const [status, setStatus] = useState('CONFIRMED')
+  const [status, setStatus] = useState('PENDING')
   const [notes, setNotes] = useState('')
 
   // Services
@@ -182,12 +184,10 @@ export function BookingDetailModal({
     // checks its own per-event transition gate so saves that don't move
     // status never double-credit.
     if (loyaltyEnabled) {
-      const isVisit = newStatus === 'ARRIVED' || newStatus === 'CONFIRMED'
-      const wasVisit = prevStatus === 'ARRIVED' || prevStatus === 'CONFIRMED'
-
-      // Bug A — VISIT_SPEND: newStatus ∈ {ARRIVED, CONFIRMED} AND
-      //                       prevStatus ∉ {ARRIVED, CONFIRMED}
-      if (isVisit && !wasVisit) {
+      // T-BUG-02 — VISIT_SPEND fires ONLY when status transitions into
+      // ARRIVED. CONFIRMED no longer earns points. Lifecycle is:
+      //   PENDING → CONFIRMED → ARRIVED   (points fire here)
+      if (newStatus === 'ARRIVED' && prevStatus !== 'ARRIVED') {
         console.log('[BookingDetailModal] firing VISIT_SPEND', {
           customerId: detail.customer_id,
           points: selectedService.price,
@@ -202,7 +202,7 @@ export function BookingDetailModal({
         // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
         await supabase
           .from('customers')
-          .update({ last_visit_at: startAt.slice(0, 10) })
+          .update({ last_visit_at: detail.start_at.slice(0, 10) })
           .eq('id', detail.customer_id)
       }
 

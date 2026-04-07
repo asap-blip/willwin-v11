@@ -12,6 +12,7 @@ interface HistoryRow {
 }
 
 const STATUS_STYLES: Record<string, string> = {
+  PENDING: 'bg-slate-100 text-slate-700',
   CONFIRMED: 'bg-green-100 text-green-800',
   ARRIVED: 'bg-blue-100 text-blue-800',
   LATE: 'bg-amber-100 text-amber-800',

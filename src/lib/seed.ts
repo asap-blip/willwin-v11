@@ -67,9 +67,11 @@ async function seed() {
   const { data: bookings, error: bkError } = await supabase
     .from('bookings')
     .insert([
+      // T-BUG-02 — realistic lifecycle mix: CONFIRMED (replied yes),
+      // ARRIVED (in chair), PENDING (awaiting SMS reply), LATE.
       { customer_id: isabelle.id, start_at: `${today}T09:30:00`, status: 'CONFIRMED', notes: null },
       { customer_id: nathalie.id, start_at: `${today}T10:00:00`, status: 'ARRIVED', notes: 'Prefers neutral colors' },
-      { customer_id: isabelle.id, start_at: `${today}T13:00:00`, status: 'CONFIRMED', notes: null },
+      { customer_id: isabelle.id, start_at: `${today}T13:00:00`, status: 'PENDING', notes: null },
       { customer_id: nathalie.id, start_at: `${today}T14:30:00`, status: 'LATE', notes: 'Running 10 min late' },
     ])
     .select()

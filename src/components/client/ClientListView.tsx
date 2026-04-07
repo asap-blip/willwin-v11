@@ -41,13 +41,14 @@ export function ClientListView() {
       // Batch-fetch stats for all customers
       const customerIds = customers.map((c) => c.id)
 
-      // Visit counts + last visit (CONFIRMED or ARRIVED)
+      // T-BUG-02 — only ARRIVED counts as a real visit / spend.
+      // PENDING and CONFIRMED are pre-arrival states.
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
       const { data: bookings } = await supabase
         .from('bookings')
         .select('id, customer_id, start_at, status')
         .in('customer_id', customerIds)
-        .in('status', ['CONFIRMED', 'ARRIVED'])
+        .eq('status', 'ARRIVED')
 
       // Total spend through appointment_segments
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
@@ -58,7 +59,7 @@ export function ClientListView() {
           service:services!inner (price)
         `)
         .in('booking.customer_id', customerIds)
-        .in('booking.status', ['CONFIRMED', 'ARRIVED'])
+        .eq('booking.status', 'ARRIVED')
 
       // Build lookup maps
       const visitMap: Record<string, { count: number; lastVisit: string | null }> = {}

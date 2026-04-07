@@ -34,13 +34,14 @@ export function ClientProfileView({ customer, teamMembers, loyaltyEnabled }: Cli
 
   useEffect(() => {
     async function loadStats() {
-      // Visit count + last visit: CONFIRMED or ARRIVED
+      // T-BUG-02 — only ARRIVED counts as a real visit. PENDING and
+      // CONFIRMED are pre-arrival states and must not inflate visit stats.
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
       const { data: visitData, count: visitCount } = await supabase
         .from('bookings')
         .select('start_at', { count: 'exact' })
         .eq('customer_id', customer.id)
-        .in('status', ['CONFIRMED', 'ARRIVED'])
+        .eq('status', 'ARRIVED')
         .order('start_at', { ascending: false })
         .limit(1)
 
@@ -52,7 +53,7 @@ export function ClientProfileView({ customer, teamMembers, loyaltyEnabled }: Cli
         .eq('customer_id', customer.id)
         .eq('status', 'NO SHOW')
 
-      // Total spend — sum service prices through appointment_segments
+      // T-BUG-02 — total spend only counts ARRIVED bookings.
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
       const { data: spendData } = await supabase
         .from('appointment_segments')
@@ -61,7 +62,7 @@ export function ClientProfileView({ customer, teamMembers, loyaltyEnabled }: Cli
           booking:bookings!inner (id, customer_id, status)
         `)
         .eq('booking.customer_id', customer.id)
-        .in('booking.status', ['CONFIRMED', 'ARRIVED'])
+        .eq('booking.status', 'ARRIVED')
 
       const totalSpend = (spendData ?? []).reduce((sum, seg) => {
         const service = seg.service as unknown as { price: number }

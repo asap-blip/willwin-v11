@@ -212,9 +212,11 @@ export function NewBookingModal({
     const { data: booking, error: bkErr } = await supabase
       .from('bookings')
       .insert({
+        // T-BUG-02 — new bookings start as PENDING (awaiting SMS confirmation).
+        // Lifecycle: PENDING → CONFIRMED → ARRIVED. CANCELLED frees the slot.
         customer_id: selectedClient.id,
         start_at: startAt,
-        status: 'CONFIRMED',
+        status: 'PENDING',
         notes: notes.trim() || null,
       })
       .select('id')
@@ -347,11 +349,11 @@ export function NewBookingModal({
             )}
           </fieldset>
 
-          {/* Status */}
+          {/* Status — new bookings always start as PENDING (read-only display) */}
           <fieldset>
             <label className="block text-sm font-medium mb-1">Status</label>
-            <span className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-              CONFIRMED
+            <span className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">
+              PENDING
             </span>
           </fieldset>
 
