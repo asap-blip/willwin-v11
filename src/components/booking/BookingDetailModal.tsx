@@ -234,6 +234,37 @@ export function BookingDetailModal({
           detail.booking_id,
         )
       }
+
+      // Reversals — when status moves AWAY from a penalty state, compensate
+      // the prior penalty so the customer is made whole. The dedupe in
+      // addLoyaltyEvent (per booking + event_type) ensures each reversal
+      // can only fire once per booking even if the user toggles back and
+      // forth.
+      if (prevStatus === 'NO SHOW' && newStatus !== 'NO SHOW') {
+        console.log('[BookingDetailModal] firing NO_SHOW_REVERSAL', {
+          customerId: detail.customer_id,
+        })
+        await addLoyaltyEvent(
+          detail.customer_id,
+          'NO_SHOW_REVERSAL',
+          25,
+          'Auto: status corrected',
+          detail.booking_id,
+        )
+      }
+
+      if (prevStatus === 'LATE' && newStatus !== 'LATE') {
+        console.log('[BookingDetailModal] firing LATE_REVERSAL', {
+          customerId: detail.customer_id,
+        })
+        await addLoyaltyEvent(
+          detail.customer_id,
+          'LATE_REVERSAL',
+          10,
+          'Auto: status corrected',
+          detail.booking_id,
+        )
+      }
     }
 
     // Bug 2 fix: AWAIT the parent's reload so the booking grid actually has
