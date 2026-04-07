@@ -14,6 +14,7 @@ import { BookingCard } from './BookingCard'
 
 interface TimeGridProps {
   teamMembers: TeamMember[]
+  techAvailabilityForDay: Record<string, boolean>
   bookings: CalendarBooking[]
   hours: BusinessHours
   loyaltyEnabled: boolean
@@ -21,7 +22,15 @@ interface TimeGridProps {
   onBookingClick: (bookingId: string) => void
 }
 
-export function TimeGrid({ teamMembers, bookings, hours, loyaltyEnabled, onSlotClick, onBookingClick }: TimeGridProps) {
+export function TimeGrid({
+  teamMembers,
+  techAvailabilityForDay,
+  bookings,
+  hours,
+  loyaltyEnabled,
+  onSlotClick,
+  onBookingClick,
+}: TimeGridProps) {
   const slots = useMemo(
     () => generateTimeSlots(hours.open_time, hours.close_time),
     [hours.open_time, hours.close_time],
@@ -93,18 +102,27 @@ export function TimeGrid({ teamMembers, bookings, hours, loyaltyEnabled, onSlotC
             <p className="text-sm text-muted-foreground">No techs scheduled to work today.</p>
           </div>
         ) : (
-          teamMembers.map((tm) => (
-            <div key={tm.id} className="flex-1 min-w-[180px] border-l border-border">
-              {/* Tech header */}
+          teamMembers.map((tm) => {
+            const available = techAvailabilityForDay[tm.id] ?? false
+            return (
+            <div
+              key={tm.id}
+              className={`flex-1 min-w-[180px] border-l border-border ${available ? '' : 'bg-muted/40'}`}
+            >
+              {/* Tech header — grayed out when the tech is off this day of week */}
               <div
-                className="sticky top-0 z-10 h-14 flex items-center gap-2 px-3 border-b"
+                className={`sticky top-0 z-10 h-14 flex items-center gap-2 px-3 border-b ${available ? '' : 'opacity-50'}`}
                 style={{ backgroundColor: 'var(--rs-primary-subtle)', borderColor: 'var(--rs-primary-border)' }}
+                title={available ? undefined : 'Off today'}
               >
                 <span
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: tm.color }}
                 />
                 <span className="text-sm font-medium truncate" style={{ color: 'var(--rs-text-primary)' }}>{tm.name}</span>
+                {!available && (
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Off</span>
+                )}
               </div>
 
               {/* Slots + bookings */}
@@ -113,9 +131,11 @@ export function TimeGrid({ teamMembers, bookings, hours, loyaltyEnabled, onSlotC
                 {slots.slice(0, slotRowCount).map((slot) => (
                   <div
                     key={slot}
-                    className="absolute inset-x-0 border-b border-border/50 hover:bg-muted/30 cursor-pointer"
+                    className={`absolute inset-x-0 border-b border-border/50 ${
+                      available ? 'hover:bg-muted/30 cursor-pointer' : 'cursor-not-allowed'
+                    }`}
                     style={{ top: timeToOffsetFrom(slot, hours.open_time), height: SLOT_HEIGHT }}
-                    onClick={() => onSlotClick(tm.id, slot)}
+                    onClick={available ? () => onSlotClick(tm.id, slot) : undefined}
                   />
                 ))}
 
@@ -145,7 +165,8 @@ export function TimeGrid({ teamMembers, bookings, hours, loyaltyEnabled, onSlotC
                 )}
               </div>
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

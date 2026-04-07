@@ -5,13 +5,13 @@ import Link from 'next/link'
 import { X, AlertTriangle, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import type { TeamMember, Service, BookingDetail, BusinessHours } from '@/lib/types'
+import type { TeamMember, Service, BookingDetail, BusinessHours, TechAvailability } from '@/lib/types'
 import {
   formatTimeLabel,
   roundToSlot,
   generateTimeSlots,
   getDayOfWeek,
-  techWorksOnDay,
+  isTechAvailable,
 } from '@/lib/calendar-helpers'
 import { fetchBookingDetail, fetchCustomerVisitStats } from '@/lib/fetch-booking-detail'
 import { addLoyaltyEvent } from '@/lib/loyalty-events'
@@ -28,6 +28,7 @@ interface BookingDetailModalProps {
   onSaved: () => void | Promise<void>
   teamMembers: TeamMember[]
   businessHours: BusinessHours[]
+  techAvailability: TechAvailability[]
   loyaltyEnabled: boolean
 }
 
@@ -38,6 +39,7 @@ export function BookingDetailModal({
   onSaved,
   teamMembers,
   businessHours,
+  techAvailability,
   loyaltyEnabled,
 }: BookingDetailModalProps) {
   // Loading state
@@ -117,9 +119,12 @@ export function BookingDetailModal({
     () => (isClosed || !hoursForDay ? [] : generateTimeSlots(hoursForDay.open_time, hoursForDay.close_time)),
     [hoursForDay, isClosed],
   )
-  const techsForDay = useMemo(
-    () => teamMembers.filter((tm) => techWorksOnDay(tm.working_days, dayOfWeek)),
-    [teamMembers, dayOfWeek],
+  // Selected tech's availability on the chosen date. The dropdown shows the
+  // full team list (the originally-assigned tech may legitimately be off);
+  // Save is disabled and a warning shown when the picked tech is off.
+  const selectedTechAvailable = useMemo(
+    () => (teamMemberId ? isTechAvailable(techAvailability, teamMemberId, dayOfWeek) : true),
+    [techAvailability, teamMemberId, dayOfWeek],
   )
 
   async function handleSave() {
@@ -400,18 +405,15 @@ export function BookingDetailModal({
                       onChange={(e) => setTeamMemberId(e.target.value)}
                       className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      {(() => {
-                        const techIds = new Set(techsForDay.map((t) => t.id))
-                        const list = [...techsForDay]
-                        if (teamMemberId && !techIds.has(teamMemberId)) {
-                          const current = teamMembers.find((t) => t.id === teamMemberId)
-                          if (current) list.unshift(current)
-                        }
-                        return list.map((tm) => (
-                          <option key={tm.id} value={tm.id}>{tm.name}</option>
-                        ))
-                      })()}
+                      {teamMembers.map((tm) => (
+                        <option key={tm.id} value={tm.id}>{tm.name}</option>
+                      ))}
                     </select>
+                    {!selectedTechAvailable && (
+                      <p className="mt-1.5 text-sm text-amber-600">
+                        This tech is off on the selected day.
+                      </p>
+                    )}
                   </fieldset>
 
                   {/* Date */}
@@ -540,7 +542,7 @@ export function BookingDetailModal({
               {/* Save + close — right side */}
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={onClose}>Close</Button>
-                <Button onClick={handleSave} disabled={saving || !selectedService || isClosed}>
+                <Button onClick={handleSave} disabled={saving || !selectedService || isClosed || !selectedTechAvailable}>
                   {saving ? 'Saving...' : 'Save'}
                 </Button>
               </div>

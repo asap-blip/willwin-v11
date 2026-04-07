@@ -15,6 +15,12 @@ export interface BusinessHours {
   close_time: string // "HH:MM"
 }
 
+export interface TechAvailability {
+  id: string
+  team_member_id: string
+  day_of_week: number // 0 = Sunday ... 6 = Saturday
+}
+
 export interface Service {
   id: string
   name: string

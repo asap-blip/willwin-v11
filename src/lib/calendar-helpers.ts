@@ -116,13 +116,17 @@ export function getDayOfWeek(dateStr: string): number {
   return new Date(dateStr + 'T12:00:00').getDay()
 }
 
-// Does this tech work on the given day of week? Empty/null = works all days.
-export function techWorksOnDay(workingDays: string | null | undefined, dayOfWeek: number): boolean {
-  if (!workingDays) return true
-  return workingDays
-    .split(',')
-    .map((s) => parseInt(s.trim(), 10))
-    .includes(dayOfWeek)
+// Does this tech have a tech_availability row for the given day of week?
+// Single source of truth (T12) — replaces the legacy team_members.working_days field.
+import type { TechAvailability } from './types'
+export function isTechAvailable(
+  availabilities: TechAvailability[],
+  teamMemberId: string,
+  dayOfWeek: number,
+): boolean {
+  return availabilities.some(
+    (a) => a.team_member_id === teamMemberId && a.day_of_week === dayOfWeek,
+  )
 }
 
 // Format a date string for the top bar: "Sunday, April 6, 2026"

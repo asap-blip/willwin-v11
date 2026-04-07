@@ -4,14 +4,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import type { TeamMember, Service, BusinessHours } from '@/lib/types'
+import type { TeamMember, Service, BusinessHours, TechAvailability } from '@/lib/types'
 import {
   formatTimeLabel,
   roundToSlot,
   addMinutesToTimeString,
   generateTimeSlots,
   getDayOfWeek,
-  techWorksOnDay,
+  isTechAvailable,
 } from '@/lib/calendar-helpers'
 import { ClientSearch } from './ClientSearch'
 
@@ -27,6 +27,7 @@ interface NewBookingModalProps {
   onSaved: () => void | Promise<void>
   teamMembers: TeamMember[]
   businessHours: BusinessHours[]
+  techAvailability: TechAvailability[]
   prefilledTeamMemberId: string
   prefilledDate: string   // YYYY-MM-DD
   prefilledTime: string   // HH:MM
@@ -38,6 +39,7 @@ export function NewBookingModal({
   onSaved,
   teamMembers,
   businessHours,
+  techAvailability,
   prefilledTeamMemberId,
   prefilledDate,
   prefilledTime,
@@ -66,9 +68,11 @@ export function NewBookingModal({
     () => (isClosed || !hoursForDay ? [] : generateTimeSlots(hoursForDay.open_time, hoursForDay.close_time)),
     [hoursForDay, isClosed],
   )
-  const techsForDay = useMemo(
-    () => teamMembers.filter((tm) => techWorksOnDay(tm.working_days, dayOfWeek)),
-    [teamMembers, dayOfWeek],
+  // Selected tech's availability on the chosen date. Spec: do not filter the
+  // dropdown — show all techs and warn + disable Save when the selection is off.
+  const selectedTechAvailable = useMemo(
+    () => (teamMemberId ? isTechAvailable(techAvailability, teamMemberId, dayOfWeek) : true),
+    [techAvailability, teamMemberId, dayOfWeek],
   )
 
   // Clamp time to the open window when the selected date changes
@@ -78,14 +82,6 @@ export function NewBookingModal({
       setTime(slotsForDay[0])
     }
   }, [open, isClosed, slotsForDay, time])
-
-  // Clamp tech selection to one that actually works this day
-  useEffect(() => {
-    if (!open || techsForDay.length === 0) return
-    if (!techsForDay.some((tm) => tm.id === teamMemberId)) {
-      setTeamMemberId(techsForDay[0].id)
-    }
-  }, [open, techsForDay, teamMemberId])
 
   // Reset form when modal opens with new prefill values
   useEffect(() => {
@@ -189,7 +185,6 @@ export function NewBookingModal({
     return () => { cancelled = true }
   }, [open, teamMemberId, date, time, selectedService, teamMembers])
 
-  const noTechsToday = techsForDay.length === 0
   const canSave =
     selectedClient &&
     serviceId &&
@@ -198,7 +193,7 @@ export function NewBookingModal({
     !conflict &&
     !checking &&
     !isClosed &&
-    !noTechsToday
+    selectedTechAvailable
 
   async function handleSave() {
     if (!canSave || !selectedClient || !serviceId || !selectedService) return
@@ -278,21 +273,22 @@ export function NewBookingModal({
             />
           </fieldset>
 
-          {/* Tech — only techs who work on this day of week */}
+          {/* Tech — full list; warn inline when the selection is off this day */}
           <fieldset>
             <label className="block text-sm font-medium mb-1">Tech</label>
-            {noTechsToday ? (
-              <p className="text-sm text-amber-600">No techs work on this day of the week.</p>
-            ) : (
-              <select
-                value={teamMemberId}
-                onChange={(e) => setTeamMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {techsForDay.map((tm) => (
-                  <option key={tm.id} value={tm.id}>{tm.name}</option>
-                ))}
-              </select>
+            <select
+              value={teamMemberId}
+              onChange={(e) => setTeamMemberId(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {teamMembers.map((tm) => (
+                <option key={tm.id} value={tm.id}>{tm.name}</option>
+              ))}
+            </select>
+            {!selectedTechAvailable && (
+              <p className="mt-1.5 text-sm text-amber-600">
+                This tech is off on the selected day. Pick another tech or change the date.
+              </p>
             )}
           </fieldset>
 

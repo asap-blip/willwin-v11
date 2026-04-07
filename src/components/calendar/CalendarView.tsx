@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { TeamMember, CalendarBooking, BusinessHours } from '@/lib/types'
-import { getTodayString, getDayOfWeek, techWorksOnDay } from '@/lib/calendar-helpers'
+import type { TeamMember, CalendarBooking, BusinessHours, TechAvailability } from '@/lib/types'
+import { getTodayString, getDayOfWeek, isTechAvailable } from '@/lib/calendar-helpers'
 import { fetchBookingsForDate } from '@/lib/fetch-bookings'
 import { TopBar } from './TopBar'
 import { TimeGrid } from './TimeGrid'
@@ -12,6 +12,7 @@ import { BookingDetailModal } from '@/components/booking/BookingDetailModal'
 interface CalendarViewProps {
   teamMembers: TeamMember[]
   businessHours: BusinessHours[]
+  techAvailability: TechAvailability[]
   initialBookings: CalendarBooking[]
   initialDate: string
   loyaltyEnabled: boolean
@@ -20,6 +21,7 @@ interface CalendarViewProps {
 export function CalendarView({
   teamMembers,
   businessHours,
+  techAvailability,
   initialBookings,
   initialDate,
   loyaltyEnabled,
@@ -89,10 +91,21 @@ export function CalendarView({
     )
   }, [businessHours, dayOfWeek])
 
-  // Techs that work on the current day of week
-  const techsForDay = useMemo(
-    () => teamMembers.filter((tm) => techWorksOnDay(tm.working_days, dayOfWeek)),
-    [teamMembers, dayOfWeek],
+  // Per-tech availability flags for the current day of week. Techs are NOT
+  // filtered out — the grid keeps their column visible but grays it out and
+  // disables slot clicks via TimeGrid (T12 spec).
+  const techAvailabilityForDay = useMemo(() => {
+    const map: Record<string, boolean> = {}
+    for (const tm of teamMembers) {
+      map[tm.id] = isTechAvailable(techAvailability, tm.id, dayOfWeek)
+    }
+    return map
+  }, [teamMembers, techAvailability, dayOfWeek])
+
+  // First tech that is actually available today, for the New Booking button default
+  const firstAvailableTech = useMemo(
+    () => teamMembers.find((tm) => techAvailabilityForDay[tm.id]),
+    [teamMembers, techAvailabilityForDay],
   )
 
   function openModal(teamMemberId: string, time: string) {
@@ -102,8 +115,8 @@ export function CalendarView({
   }
 
   function handleNewBookingButton() {
-    // Default to first tech working today and the open time when launched from TopBar
-    openModal(techsForDay[0]?.id ?? teamMembers[0]?.id ?? '', hoursForDay.open_time)
+    // Default to first available tech today and the open time when launched from TopBar
+    openModal(firstAvailableTech?.id ?? teamMembers[0]?.id ?? '', hoursForDay.open_time)
   }
 
   function handleBookingClick(bookingId: string) {
@@ -121,7 +134,8 @@ export function CalendarView({
         onNewBooking={handleNewBookingButton}
       />
       <TimeGrid
-        teamMembers={techsForDay}
+        teamMembers={teamMembers}
+        techAvailabilityForDay={techAvailabilityForDay}
         bookings={bookings}
         hours={hoursForDay}
         loyaltyEnabled={loyaltyEnabled}
@@ -134,6 +148,7 @@ export function CalendarView({
         onSaved={() => loadBookings(currentDate)}
         teamMembers={teamMembers}
         businessHours={businessHours}
+        techAvailability={techAvailability}
         prefilledTeamMemberId={slotTeamMemberId}
         prefilledDate={currentDate}
         prefilledTime={slotTime}
@@ -145,6 +160,7 @@ export function CalendarView({
         onSaved={() => loadBookings(currentDate)}
         teamMembers={teamMembers}
         businessHours={businessHours}
+        techAvailability={techAvailability}
         loyaltyEnabled={loyaltyEnabled}
       />
     </div>

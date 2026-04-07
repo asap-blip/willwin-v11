@@ -11,7 +11,7 @@ export function SettingsView() {
       <TabsList>
         <TabsTrigger value="services">Services</TabsTrigger>
         <TabsTrigger value="team">Team</TabsTrigger>
-        <TabsTrigger value="hours">Hours</TabsTrigger>
+        <TabsTrigger value="hours">Hours &amp; Availability</TabsTrigger>
       </TabsList>
 
       <TabsContent value="services">
