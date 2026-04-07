@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDateHeading } from '@/lib/calendar-helpers'
@@ -14,6 +15,13 @@ interface TopBarProps {
 }
 
 export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: TopBarProps) {
+  const router = useRouter()
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login')
+  }
+
   return (
     <div
       className="flex items-center justify-between px-6 py-3 border-b"
@@ -55,6 +63,14 @@ export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: T
         <Link href="/settings" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>
           Settings
         </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="text-sm hover:underline"
+          style={{ color: 'var(--rs-neutral)' }}
+        >
+          Logout
+        </button>
         <Button
           className="gap-2 text-white hover:opacity-90"
           style={{ backgroundColor: 'var(--rs-primary)' }}
