@@ -59,6 +59,14 @@ export function getCurrentTimeOffset(): number | null {
   return (totalMinutes / 30) * SLOT_HEIGHT
 }
 
+// Round a HH:MM time down to the nearest 30-minute slot
+export function roundToSlot(time: string): string {
+  const h = parseInt(time.slice(0, 2), 10)
+  const m = parseInt(time.slice(3, 5), 10)
+  const rounded = m >= 30 ? '30' : '00'
+  return `${String(h).padStart(2, '0')}:${rounded}`
+}
+
 // Format a date string for the top bar: "Sunday, April 6, 2026"
 export function formatDateHeading(dateStr: string): string {
   const year = parseInt(dateStr.slice(0, 4), 10)

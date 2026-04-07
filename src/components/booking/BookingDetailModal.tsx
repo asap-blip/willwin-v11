@@ -6,6 +6,7 @@ import { X, AlertTriangle, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import type { TeamMember, Service, BookingDetail } from '@/lib/types'
+import { TIME_SLOTS, formatTimeLabel, roundToSlot } from '@/lib/calendar-helpers'
 import { fetchBookingDetail, fetchCustomerVisitStats } from '@/lib/fetch-booking-detail'
 
 const EDITABLE_STATUSES = ['CONFIRMED', 'ARRIVED', 'LATE', 'NO SHOW']
@@ -72,7 +73,7 @@ export function BookingDetailModal({
         setTeamMemberId(det.team_member_id)
         // Slice date and time from start_at — string only, never new Date()
         setDate(det.start_at.slice(0, 10))
-        setTime(det.start_at.slice(11, 16))
+        setTime(roundToSlot(det.start_at.slice(11, 16)))
         setServiceId(det.service_id)
         setStatus(det.status)
         setNotes(det.notes ?? '')
@@ -267,13 +268,15 @@ export function BookingDetailModal({
                   {/* Time */}
                   <fieldset>
                     <label className="block text-sm font-medium mb-1">Time</label>
-                    <input
-                      type="time"
+                    <select
                       value={time}
                       onChange={(e) => setTime(e.target.value)}
-                      step={1800}
                       className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
+                    >
+                      {TIME_SLOTS.map((slot) => (
+                        <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
+                      ))}
+                    </select>
                   </fieldset>
 
                   {/* Service */}

@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import type { TeamMember, Service } from '@/lib/types'
+import { TIME_SLOTS, formatTimeLabel, roundToSlot } from '@/lib/calendar-helpers'
 import { ClientSearch } from './ClientSearch'
 
 interface SelectedClient {
@@ -36,7 +37,7 @@ export function NewBookingModal({
   const [selectedClient, setSelectedClient] = useState<SelectedClient | null>(null)
   const [teamMemberId, setTeamMemberId] = useState(prefilledTeamMemberId)
   const [date, setDate] = useState(prefilledDate)
-  const [time, setTime] = useState(prefilledTime)
+  const [time, setTime] = useState(roundToSlot(prefilledTime))
   const [serviceId, setServiceId] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -51,7 +52,7 @@ export function NewBookingModal({
       setSelectedClient(null)
       setTeamMemberId(prefilledTeamMemberId)
       setDate(prefilledDate)
-      setTime(prefilledTime)
+      setTime(roundToSlot(prefilledTime))
       setServiceId(null)
       setNotes('')
       setSaving(false)
@@ -179,13 +180,15 @@ export function NewBookingModal({
           {/* Time */}
           <fieldset>
             <label className="block text-sm font-medium mb-1">Time</label>
-            <input
-              type="time"
+            <select
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              step={1800}
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            >
+              {TIME_SLOTS.map((slot) => (
+                <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
+              ))}
+            </select>
           </fieldset>
 
           {/* Service */}
