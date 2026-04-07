@@ -78,6 +78,53 @@ export function roundToSlot(time: string): string {
   return `${String(h).padStart(2, '0')}:${rounded}`
 }
 
+// ─── Business hours helpers (T12) ──────────────────────────────────────────
+
+// Generate 30-minute slot labels from openTime to closeTime, inclusive of close.
+// Both inputs are "HH:MM" strings; never new Date().
+export function generateTimeSlots(openTime: string, closeTime: string): string[] {
+  const slots: string[] = []
+  const startMin = parseInt(openTime.slice(0, 2), 10) * 60 + parseInt(openTime.slice(3, 5), 10)
+  const endMin = parseInt(closeTime.slice(0, 2), 10) * 60 + parseInt(closeTime.slice(3, 5), 10)
+  for (let t = startMin; t <= endMin; t += 30) {
+    const h = String(Math.floor(t / 60)).padStart(2, '0')
+    const m = String(t % 60).padStart(2, '0')
+    slots.push(`${h}:${m}`)
+  }
+  return slots
+}
+
+// Pixel offset of a HH:MM time relative to a grid that starts at openTime.
+export function timeToOffsetFrom(time: string, openTime: string): number {
+  const tMin = parseInt(time.slice(0, 2), 10) * 60 + parseInt(time.slice(3, 5), 10)
+  const oMin = parseInt(openTime.slice(0, 2), 10) * 60 + parseInt(openTime.slice(3, 5), 10)
+  return ((tMin - oMin) / 30) * SLOT_HEIGHT
+}
+
+// Current-time red line offset for a grid running openTime → closeTime.
+// Returns null when "now" is outside the open window.
+export function getCurrentTimeOffsetFrom(openTime: string, closeTime: string): number | null {
+  const now = new Date()
+  const cur = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  if (cur < openTime || cur >= closeTime) return null
+  return timeToOffsetFrom(cur, openTime)
+}
+
+// Day of week (0 = Sunday … 6 = Saturday) from a YYYY-MM-DD string.
+// Anchored at noon to dodge any DST nonsense — only the day number is used.
+export function getDayOfWeek(dateStr: string): number {
+  return new Date(dateStr + 'T12:00:00').getDay()
+}
+
+// Does this tech work on the given day of week? Empty/null = works all days.
+export function techWorksOnDay(workingDays: string | null | undefined, dayOfWeek: number): boolean {
+  if (!workingDays) return true
+  return workingDays
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .includes(dayOfWeek)
+}
+
 // Format a date string for the top bar: "Sunday, April 6, 2026"
 export function formatDateHeading(dateStr: string): string {
   const year = parseInt(dateStr.slice(0, 4), 10)

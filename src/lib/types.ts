@@ -4,6 +4,15 @@ export interface TeamMember {
   color: string
   avatar_url: string | null
   is_active: boolean
+  working_days: string | null // comma-separated day numbers, e.g. "1,2,3,4,5,6"
+}
+
+export interface BusinessHours {
+  id: string
+  day_of_week: number // 0 = Sunday ... 6 = Saturday
+  is_open: boolean
+  open_time: string // "HH:MM"
+  close_time: string // "HH:MM"
 }
 
 export interface Service {

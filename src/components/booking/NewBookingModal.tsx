@@ -1,11 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import type { TeamMember, Service } from '@/lib/types'
-import { TIME_SLOTS, formatTimeLabel, roundToSlot, addMinutesToTimeString } from '@/lib/calendar-helpers'
+import type { TeamMember, Service, BusinessHours } from '@/lib/types'
+import {
+  formatTimeLabel,
+  roundToSlot,
+  addMinutesToTimeString,
+  generateTimeSlots,
+  getDayOfWeek,
+  techWorksOnDay,
+} from '@/lib/calendar-helpers'
 import { ClientSearch } from './ClientSearch'
 
 interface SelectedClient {
@@ -19,6 +26,7 @@ interface NewBookingModalProps {
   onClose: () => void
   onSaved: () => void
   teamMembers: TeamMember[]
+  businessHours: BusinessHours[]
   prefilledTeamMemberId: string
   prefilledDate: string   // YYYY-MM-DD
   prefilledTime: string   // HH:MM
@@ -29,6 +37,7 @@ export function NewBookingModal({
   onClose,
   onSaved,
   teamMembers,
+  businessHours,
   prefilledTeamMemberId,
   prefilledDate,
   prefilledTime,
@@ -45,6 +54,38 @@ export function NewBookingModal({
   // Services fetched on mount
   const [services, setServices] = useState<Service[]>([])
   const [servicesLoaded, setServicesLoaded] = useState(false)
+
+  // Day-of-week + business hours for the selected date
+  const dayOfWeek = useMemo(() => getDayOfWeek(date), [date])
+  const hoursForDay = useMemo<BusinessHours | undefined>(
+    () => businessHours.find((h) => h.day_of_week === dayOfWeek),
+    [businessHours, dayOfWeek],
+  )
+  const isClosed = !hoursForDay || !hoursForDay.is_open
+  const slotsForDay = useMemo(
+    () => (isClosed || !hoursForDay ? [] : generateTimeSlots(hoursForDay.open_time, hoursForDay.close_time)),
+    [hoursForDay, isClosed],
+  )
+  const techsForDay = useMemo(
+    () => teamMembers.filter((tm) => techWorksOnDay(tm.working_days, dayOfWeek)),
+    [teamMembers, dayOfWeek],
+  )
+
+  // Clamp time to the open window when the selected date changes
+  useEffect(() => {
+    if (!open || isClosed || slotsForDay.length === 0) return
+    if (!slotsForDay.includes(time)) {
+      setTime(slotsForDay[0])
+    }
+  }, [open, isClosed, slotsForDay, time])
+
+  // Clamp tech selection to one that actually works this day
+  useEffect(() => {
+    if (!open || techsForDay.length === 0) return
+    if (!techsForDay.some((tm) => tm.id === teamMemberId)) {
+      setTeamMemberId(techsForDay[0].id)
+    }
+  }, [open, techsForDay, teamMemberId])
 
   // Reset form when modal opens with new prefill values
   useEffect(() => {
@@ -141,7 +182,16 @@ export function NewBookingModal({
     return () => { cancelled = true }
   }, [open, teamMemberId, date, time, selectedService, teamMembers])
 
-  const canSave = selectedClient && serviceId && !servicesEmpty && !saving && !conflict && !checking
+  const noTechsToday = techsForDay.length === 0
+  const canSave =
+    selectedClient &&
+    serviceId &&
+    !servicesEmpty &&
+    !saving &&
+    !conflict &&
+    !checking &&
+    !isClosed &&
+    !noTechsToday
 
   async function handleSave() {
     if (!canSave || !selectedClient || !serviceId || !selectedService) return
@@ -216,18 +266,22 @@ export function NewBookingModal({
             />
           </fieldset>
 
-          {/* Tech */}
+          {/* Tech — only techs who work on this day of week */}
           <fieldset>
             <label className="block text-sm font-medium mb-1">Tech</label>
-            <select
-              value={teamMemberId}
-              onChange={(e) => setTeamMemberId(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {teamMembers.map((tm) => (
-                <option key={tm.id} value={tm.id}>{tm.name}</option>
-              ))}
-            </select>
+            {noTechsToday ? (
+              <p className="text-sm text-amber-600">No techs work on this day of the week.</p>
+            ) : (
+              <select
+                value={teamMemberId}
+                onChange={(e) => setTeamMemberId(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {techsForDay.map((tm) => (
+                  <option key={tm.id} value={tm.id}>{tm.name}</option>
+                ))}
+              </select>
+            )}
           </fieldset>
 
           {/* Date */}
@@ -241,18 +295,22 @@ export function NewBookingModal({
             />
           </fieldset>
 
-          {/* Time */}
+          {/* Time — slots are limited to business hours for this day */}
           <fieldset>
             <label className="block text-sm font-medium mb-1">Time</label>
-            <select
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {TIME_SLOTS.map((slot) => (
-                <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
-              ))}
-            </select>
+            {isClosed ? (
+              <p className="text-sm text-amber-600">The salon is closed on this day.</p>
+            ) : (
+              <select
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {slotsForDay.map((slot) => (
+                  <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
+                ))}
+              </select>
+            )}
             {conflict && (
               <p className="mt-1.5 text-sm text-red-600">{conflict}</p>
             )}

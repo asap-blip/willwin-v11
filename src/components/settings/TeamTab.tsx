@@ -17,7 +17,7 @@ export function TeamTab() {
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
     const { data } = await supabase
       .from('team_members')
-      .select('id, name, color, avatar_url, is_active')
+      .select('id, name, color, avatar_url, is_active, working_days')
       .order('name')
     setMembers(data ?? [])
     setLoading(false)

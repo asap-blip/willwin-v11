@@ -16,6 +16,32 @@ const COLOR_PALETTE = [
   { name: 'Teal', hex: '#14B8A6' },
 ]
 
+// Display Mon → Sun, but day numbers map to JS getDay() (0 = Sun, 1 = Mon ...)
+const DAY_OPTIONS: { num: number; label: string }[] = [
+  { num: 1, label: 'Mon' },
+  { num: 2, label: 'Tue' },
+  { num: 3, label: 'Wed' },
+  { num: 4, label: 'Thu' },
+  { num: 5, label: 'Fri' },
+  { num: 6, label: 'Sat' },
+  { num: 0, label: 'Sun' },
+]
+
+const DEFAULT_WORKING_DAYS = '1,2,3,4,5,6'
+
+function parseWorkingDays(raw: string | null | undefined): number[] {
+  if (raw === null || raw === undefined) return [1, 2, 3, 4, 5, 6]
+  if (raw.trim() === '') return []
+  return raw
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !Number.isNaN(n))
+}
+
+function serializeWorkingDays(days: number[]): string {
+  return [...days].sort((a, b) => a - b).join(',')
+}
+
 interface TechModalProps {
   open: boolean
   member: TeamMember | null // null = add mode
@@ -26,6 +52,7 @@ interface TechModalProps {
 export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
   const [name, setName] = useState('')
   const [color, setColor] = useState(COLOR_PALETTE[0].hex)
+  const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5, 6])
   const [saving, setSaving] = useState(false)
 
   const isEdit = member !== null
@@ -34,25 +61,36 @@ export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
     if (open) {
       setName(member?.name ?? '')
       setColor(member?.color ?? COLOR_PALETTE[0].hex)
+      setWorkingDays(
+        member ? parseWorkingDays(member.working_days) : parseWorkingDays(DEFAULT_WORKING_DAYS),
+      )
       setSaving(false)
     }
   }, [open, member])
+
+  function toggleDay(num: number) {
+    setWorkingDays((prev) =>
+      prev.includes(num) ? prev.filter((d) => d !== num) : [...prev, num],
+    )
+  }
 
   async function handleSave() {
     if (!name.trim()) return
     setSaving(true)
 
+    const workingDaysStr = serializeWorkingDays(workingDays)
+
     if (isEdit && member) {
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
       await supabase
         .from('team_members')
-        .update({ name: name.trim(), color })
+        .update({ name: name.trim(), color, working_days: workingDaysStr })
         .eq('id', member.id)
     } else {
       // TODO: include tenant_id when tenant_id column exists
       await supabase
         .from('team_members')
-        .insert({ name: name.trim(), color, is_active: true })
+        .insert({ name: name.trim(), color, is_active: true, working_days: workingDaysStr })
     }
 
     setSaving(false)
@@ -99,6 +137,33 @@ export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
                   style={{ backgroundColor: c.hex }}
                 />
               ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <label className="block text-sm font-medium mb-2">Working Days</label>
+            <div className="flex flex-wrap gap-2">
+              {DAY_OPTIONS.map((d) => {
+                const checked = workingDays.includes(d.num)
+                return (
+                  <label
+                    key={d.num}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border cursor-pointer text-xs font-medium transition-colors ${
+                      checked
+                        ? 'bg-primary/10 border-primary text-primary'
+                        : 'bg-white border-border text-muted-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleDay(d.num)}
+                      className="h-3.5 w-3.5"
+                    />
+                    {d.label}
+                  </label>
+                )
+              })}
             </div>
           </fieldset>
         </div>

@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { X, AlertTriangle, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import type { TeamMember, Service, BookingDetail } from '@/lib/types'
-import { TIME_SLOTS, formatTimeLabel, roundToSlot } from '@/lib/calendar-helpers'
+import type { TeamMember, Service, BookingDetail, BusinessHours } from '@/lib/types'
+import {
+  formatTimeLabel,
+  roundToSlot,
+  generateTimeSlots,
+  getDayOfWeek,
+  techWorksOnDay,
+} from '@/lib/calendar-helpers'
 import { fetchBookingDetail, fetchCustomerVisitStats } from '@/lib/fetch-booking-detail'
 
 const EDITABLE_STATUSES = ['CONFIRMED', 'ARRIVED', 'LATE', 'NO SHOW']
@@ -17,6 +23,7 @@ interface BookingDetailModalProps {
   onClose: () => void
   onSaved: () => void
   teamMembers: TeamMember[]
+  businessHours: BusinessHours[]
 }
 
 export function BookingDetailModal({
@@ -25,6 +32,7 @@ export function BookingDetailModal({
   onClose,
   onSaved,
   teamMembers,
+  businessHours,
 }: BookingDetailModalProps) {
   // Loading state
   const [detail, setDetail] = useState<BookingDetail | null>(null)
@@ -91,6 +99,22 @@ export function BookingDetailModal({
   }, [open, bookingId])
 
   const selectedService = services.find((s) => s.id === serviceId) ?? null
+
+  // Day-of-week + business hours derived from the currently-selected date
+  const dayOfWeek = useMemo(() => (date ? getDayOfWeek(date) : 0), [date])
+  const hoursForDay = useMemo<BusinessHours | undefined>(
+    () => businessHours.find((h) => h.day_of_week === dayOfWeek),
+    [businessHours, dayOfWeek],
+  )
+  const isClosed = !!date && (!hoursForDay || !hoursForDay.is_open)
+  const slotsForDay = useMemo(
+    () => (isClosed || !hoursForDay ? [] : generateTimeSlots(hoursForDay.open_time, hoursForDay.close_time)),
+    [hoursForDay, isClosed],
+  )
+  const techsForDay = useMemo(
+    () => teamMembers.filter((tm) => techWorksOnDay(tm.working_days, dayOfWeek)),
+    [teamMembers, dayOfWeek],
+  )
 
   async function handleSave() {
     if (!detail || !selectedService) return
@@ -240,7 +264,8 @@ export function BookingDetailModal({
                 <div className="md:w-1/2 p-6 space-y-4">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Appointment</h3>
 
-                  {/* Tech */}
+                  {/* Tech — only techs who work on this day of week.
+                      The currently-assigned tech is always retained even if they don't work today. */}
                   <fieldset>
                     <label className="block text-sm font-medium mb-1">Tech</label>
                     <select
@@ -248,9 +273,17 @@ export function BookingDetailModal({
                       onChange={(e) => setTeamMemberId(e.target.value)}
                       className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      {teamMembers.map((tm) => (
-                        <option key={tm.id} value={tm.id}>{tm.name}</option>
-                      ))}
+                      {(() => {
+                        const techIds = new Set(techsForDay.map((t) => t.id))
+                        const list = [...techsForDay]
+                        if (teamMemberId && !techIds.has(teamMemberId)) {
+                          const current = teamMembers.find((t) => t.id === teamMemberId)
+                          if (current) list.unshift(current)
+                        }
+                        return list.map((tm) => (
+                          <option key={tm.id} value={tm.id}>{tm.name}</option>
+                        ))
+                      })()}
                     </select>
                   </fieldset>
 
@@ -265,18 +298,23 @@ export function BookingDetailModal({
                     />
                   </fieldset>
 
-                  {/* Time */}
+                  {/* Time — slots are limited to business hours for this day.
+                      The currently-saved time is always retained as a fallback. */}
                   <fieldset>
                     <label className="block text-sm font-medium mb-1">Time</label>
-                    <select
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      {TIME_SLOTS.map((slot) => (
-                        <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
-                      ))}
-                    </select>
+                    {isClosed ? (
+                      <p className="text-sm text-amber-600">The salon is closed on this day.</p>
+                    ) : (
+                      <select
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {(slotsForDay.includes(time) ? slotsForDay : [time, ...slotsForDay]).map((slot) => (
+                          <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
+                        ))}
+                      </select>
+                    )}
                   </fieldset>
 
                   {/* Service */}
@@ -375,7 +413,7 @@ export function BookingDetailModal({
               {/* Save + close — right side */}
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={onClose}>Close</Button>
-                <Button onClick={handleSave} disabled={saving || !selectedService}>
+                <Button onClick={handleSave} disabled={saving || !selectedService || isClosed}>
                   {saving ? 'Saving...' : 'Save'}
                 </Button>
               </div>

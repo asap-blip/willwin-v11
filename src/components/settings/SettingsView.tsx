@@ -3,6 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ServicesTab } from './ServicesTab'
 import { TeamTab } from './TeamTab'
+import { HoursTab } from './HoursTab'
 
 export function SettingsView() {
   return (
@@ -10,6 +11,7 @@ export function SettingsView() {
       <TabsList>
         <TabsTrigger value="services">Services</TabsTrigger>
         <TabsTrigger value="team">Team</TabsTrigger>
+        <TabsTrigger value="hours">Hours</TabsTrigger>
       </TabsList>
 
       <TabsContent value="services">
@@ -18,6 +20,10 @@ export function SettingsView() {
 
       <TabsContent value="team">
         <TeamTab />
+      </TabsContent>
+
+      <TabsContent value="hours">
+        <HoursTab />
       </TabsContent>
     </Tabs>
   )

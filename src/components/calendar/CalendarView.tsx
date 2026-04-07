@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import type { TeamMember, CalendarBooking } from '@/lib/types'
-import { getTodayString } from '@/lib/calendar-helpers'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import type { TeamMember, CalendarBooking, BusinessHours } from '@/lib/types'
+import { getTodayString, getDayOfWeek, techWorksOnDay } from '@/lib/calendar-helpers'
 import { fetchBookingsForDate } from '@/lib/fetch-bookings'
 import { TopBar } from './TopBar'
 import { TimeGrid } from './TimeGrid'
@@ -11,11 +11,17 @@ import { BookingDetailModal } from '@/components/booking/BookingDetailModal'
 
 interface CalendarViewProps {
   teamMembers: TeamMember[]
+  businessHours: BusinessHours[]
   initialBookings: CalendarBooking[]
   initialDate: string
 }
 
-export function CalendarView({ teamMembers, initialBookings, initialDate }: CalendarViewProps) {
+export function CalendarView({
+  teamMembers,
+  businessHours,
+  initialBookings,
+  initialDate,
+}: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(initialDate)
   const [bookings, setBookings] = useState<CalendarBooking[]>(initialBookings)
 
@@ -56,6 +62,29 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
     loadBookings(currentDate)
   }, [currentDate, loadBookings])
 
+  // Day-of-week derived from current date — getDayOfWeek is the only Date() use here
+  const dayOfWeek = useMemo(() => getDayOfWeek(currentDate), [currentDate])
+
+  // Hours for the current day; falls back to a closed-default if the row is missing
+  const hoursForDay = useMemo<BusinessHours>(() => {
+    const found = businessHours.find((h) => h.day_of_week === dayOfWeek)
+    return (
+      found ?? {
+        id: '',
+        day_of_week: dayOfWeek,
+        is_open: false,
+        open_time: '09:00',
+        close_time: '20:00',
+      }
+    )
+  }, [businessHours, dayOfWeek])
+
+  // Techs that work on the current day of week
+  const techsForDay = useMemo(
+    () => teamMembers.filter((tm) => techWorksOnDay(tm.working_days, dayOfWeek)),
+    [teamMembers, dayOfWeek],
+  )
+
   function openModal(teamMemberId: string, time: string) {
     setSlotTeamMemberId(teamMemberId)
     setSlotTime(time)
@@ -63,8 +92,8 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
   }
 
   function handleNewBookingButton() {
-    // Default to first team member and 09:00 when opened from TopBar
-    openModal(teamMembers[0]?.id ?? '', '09:00')
+    // Default to first tech working today and the open time when launched from TopBar
+    openModal(techsForDay[0]?.id ?? teamMembers[0]?.id ?? '', hoursForDay.open_time)
   }
 
   function handleBookingClick(bookingId: string) {
@@ -82,8 +111,9 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
         onNewBooking={handleNewBookingButton}
       />
       <TimeGrid
-        teamMembers={teamMembers}
+        teamMembers={techsForDay}
         bookings={bookings}
+        hours={hoursForDay}
         onSlotClick={openModal}
         onBookingClick={handleBookingClick}
       />
@@ -92,6 +122,7 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
         onClose={() => setModalOpen(false)}
         onSaved={() => loadBookings(currentDate)}
         teamMembers={teamMembers}
+        businessHours={businessHours}
         prefilledTeamMemberId={slotTeamMemberId}
         prefilledDate={currentDate}
         prefilledTime={slotTime}
@@ -102,6 +133,7 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
         onClose={() => setEditModalOpen(false)}
         onSaved={() => loadBookings(currentDate)}
         teamMembers={teamMembers}
+        businessHours={businessHours}
       />
     </div>
   )
