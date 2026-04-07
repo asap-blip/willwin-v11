@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import type { TeamMember, Service } from '@/lib/types'
-import { TIME_SLOTS, formatTimeLabel, roundToSlot } from '@/lib/calendar-helpers'
+import { TIME_SLOTS, formatTimeLabel, roundToSlot, addMinutesToTimeString } from '@/lib/calendar-helpers'
 import { ClientSearch } from './ClientSearch'
 
 interface SelectedClient {
@@ -56,6 +56,8 @@ export function NewBookingModal({
       setServiceId(null)
       setNotes('')
       setSaving(false)
+      setConflict(null)
+      setChecking(false)
     }
   }, [open, prefilledTeamMemberId, prefilledDate, prefilledTime])
 
@@ -75,9 +77,71 @@ export function NewBookingModal({
     loadServices()
   }, [open])
 
+  // Conflict check state
+  const [conflict, setConflict] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
+
   const selectedService = services.find((s) => s.id === serviceId) ?? null
   const servicesEmpty = servicesLoaded && services.length === 0
-  const canSave = selectedClient && serviceId && !servicesEmpty && !saving
+
+  // Check for conflicts whenever tech, date, time, or service changes
+  useEffect(() => {
+    if (!open || !teamMemberId || !date || !time || !selectedService) {
+      setConflict(null)
+      return
+    }
+
+    let cancelled = false
+    async function checkConflict() {
+      setChecking(true)
+
+      const newStartAt = `${date} ${time}`
+      const newEndAt = addMinutesToTimeString(newStartAt, selectedService!.duration_minutes)
+
+      // Find existing segments for this tech on this date that overlap
+      // Overlap condition: existing start < new end AND existing end > new start
+      // Use space for dayStart, T for dayEnd per CLAUDE.md permanent rules
+      const dayStart = `${date} 00:00:00`
+      const dayEnd = `${date}T23:59:59`
+
+      // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+      const { data: segments } = await supabase
+        .from('appointment_segments')
+        .select(`
+          id,
+          duration_minutes,
+          booking:bookings!inner (start_at, status)
+        `)
+        .eq('team_member_id', teamMemberId)
+        .gte('booking.start_at', dayStart)
+        .lte('booking.start_at', dayEnd)
+        .neq('booking.status', 'CANCELLED')
+
+      if (cancelled) return
+
+      // Check overlap using string comparison — works because format is consistent
+      const hasConflict = (segments ?? []).some((seg) => {
+        const booking = seg.booking as unknown as { start_at: string }
+        const existingStart = booking.start_at
+        const existingEnd = addMinutesToTimeString(existingStart, seg.duration_minutes)
+        // Overlap: existingStart < newEnd AND existingEnd > newStart
+        return existingStart < newEndAt && existingEnd > newStartAt
+      })
+
+      if (hasConflict) {
+        const techName = teamMembers.find((tm) => tm.id === teamMemberId)?.name ?? 'Tech'
+        setConflict(`Conflict: ${techName} already has a booking at this time.`)
+      } else {
+        setConflict(null)
+      }
+      setChecking(false)
+    }
+
+    checkConflict()
+    return () => { cancelled = true }
+  }, [open, teamMemberId, date, time, selectedService, teamMembers])
+
+  const canSave = selectedClient && serviceId && !servicesEmpty && !saving && !conflict && !checking
 
   async function handleSave() {
     if (!canSave || !selectedClient || !serviceId || !selectedService) return
@@ -189,6 +253,9 @@ export function NewBookingModal({
                 <option key={slot} value={slot}>{formatTimeLabel(slot)}</option>
               ))}
             </select>
+            {conflict && (
+              <p className="mt-1.5 text-sm text-red-600">{conflict}</p>
+            )}
           </fieldset>
 
           {/* Service */}

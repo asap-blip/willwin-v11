@@ -59,6 +59,17 @@ export function getCurrentTimeOffset(): number | null {
   return (totalMinutes / 30) * SLOT_HEIGHT
 }
 
+// Add minutes to a "YYYY-MM-DD HH:MM" string — string-only arithmetic, never new Date()
+export function addMinutesToTimeString(startAt: string, minutes: number): string {
+  const datePart = startAt.slice(0, 10)
+  const h = parseInt(startAt.slice(11, 13), 10)
+  const m = parseInt(startAt.slice(14, 16), 10)
+  const total = h * 60 + m + minutes
+  const newH = String(Math.floor(total / 60)).padStart(2, '0')
+  const newM = String(total % 60).padStart(2, '0')
+  return `${datePart} ${newH}:${newM}`
+}
+
 // Round a HH:MM time down to the nearest 30-minute slot
 export function roundToSlot(time: string): string {
   const h = parseInt(time.slice(0, 2), 10)
