@@ -45,14 +45,12 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
     setBookings(data)
   }, [])
 
-  // Re-fetch when date changes (skip initial — already have server data)
+  // Re-fetch when date changes via navigation only
   useEffect(() => {
     if (currentDate !== initialDate) {
       loadBookings(currentDate)
-    } else {
-      setBookings(initialBookings)
     }
-  }, [currentDate, initialDate, initialBookings, loadBookings])
+  }, [currentDate, initialDate, loadBookings])
 
   function openModal(teamMemberId: string, time: string) {
     setSlotTeamMemberId(teamMemberId)
