@@ -31,6 +31,9 @@ export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: T
         </h1>
       </div>
       <div className="flex items-center gap-3">
+        <Link href="/clients" className="text-sm text-muted-foreground hover:text-foreground">
+          Clients
+        </Link>
         <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
           Settings
         </Link>
