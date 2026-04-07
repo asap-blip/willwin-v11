@@ -9,6 +9,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // T13 — public client booking flow. /book and /book/* are intentionally
+  // unauthenticated so customers can book from a phone without an account.
+  if (pathname === '/book' || pathname.startsWith('/book/')) {
+    return NextResponse.next()
+  }
+
   // Check for session cookie
   const session = request.cookies.get('willwin_session')
 
