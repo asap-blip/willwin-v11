@@ -36,14 +36,14 @@ export function BookingCard({ booking, onEdit }: BookingCardProps) {
         onEdit(booking.id)
       }}
     >
-      <p className="text-xs font-semibold truncate leading-tight text-gray-900">
+      <p className="text-xs font-semibold truncate leading-tight" style={{ color: 'var(--rs-text-primary)' }}>
         {booking.customer_first_name} {booking.customer_last_name}
       </p>
-      <p className="text-[11px] text-gray-600 truncate leading-tight">
+      <p className="text-[11px] truncate leading-tight" style={{ color: 'var(--rs-text-body)', opacity: 0.7 }}>
         {booking.service_name}
       </p>
       <div className="flex items-center gap-1.5 mt-0.5">
-        <span className="text-[11px] font-medium text-gray-700">
+        <span className="text-[11px] font-medium" style={{ color: 'var(--rs-text-body)' }}>
           ${booking.service_price}
         </span>
         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusClass}`}>

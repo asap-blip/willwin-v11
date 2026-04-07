@@ -48,7 +48,7 @@ export function TimeGrid({ teamMembers, bookings, onSlotClick, onBookingClick }:
         {/* Time labels column — sticky left */}
         <div className="sticky left-0 z-20 bg-white" style={{ width: timeColWidth }}>
           {/* Header spacer */}
-          <div className="h-14 border-b border-border" />
+          <div className="h-14 border-b" style={{ backgroundColor: 'var(--rs-primary-subtle)', borderColor: 'var(--rs-primary-border)' }} />
           {/* Time labels */}
           <div className="relative" style={{ height: totalHeight }}>
             {TIME_SLOTS.map((slot, i) => (
@@ -67,12 +67,15 @@ export function TimeGrid({ teamMembers, bookings, onSlotClick, onBookingClick }:
         {teamMembers.map((tm) => (
           <div key={tm.id} className="flex-1 min-w-[180px] border-l border-border">
             {/* Tech header */}
-            <div className="sticky top-0 z-10 h-14 flex items-center gap-2 px-3 border-b border-border bg-white">
+            <div
+              className="sticky top-0 z-10 h-14 flex items-center gap-2 px-3 border-b"
+              style={{ backgroundColor: 'var(--rs-primary-subtle)', borderColor: 'var(--rs-primary-border)' }}
+            >
               <span
                 className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: tm.color }}
               />
-              <span className="text-sm font-medium truncate">{tm.name}</span>
+              <span className="text-sm font-medium truncate" style={{ color: 'var(--rs-text-primary)' }}>{tm.name}</span>
             </div>
 
             {/* Slots + bookings */}

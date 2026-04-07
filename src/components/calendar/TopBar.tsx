@@ -15,29 +15,51 @@ interface TopBarProps {
 
 export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: TopBarProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-white">
+    <div
+      className="flex items-center justify-between px-6 py-3 border-b"
+      style={{ backgroundColor: 'var(--rs-primary-subtle)', borderColor: 'var(--rs-primary-border)' }}
+    >
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={onPrev}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onPrev}
+          className="border-[var(--rs-primary-light)] text-[var(--rs-text-primary)] hover:bg-[var(--rs-primary-subtle)]"
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={onNext}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onNext}
+          className="border-[var(--rs-primary-light)] text-[var(--rs-text-primary)] hover:bg-[var(--rs-primary-subtle)]"
+        >
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={onToday}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onToday}
+          className="border-[var(--rs-primary-light)] text-[var(--rs-text-primary)] hover:bg-[var(--rs-primary-subtle)]"
+        >
           Today
         </Button>
-        <h1 className="text-lg font-semibold ml-2">
+        <h1 className="text-lg font-semibold ml-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--rs-text-primary)' }}>
           {formatDateHeading(currentDate)}
         </h1>
       </div>
       <div className="flex items-center gap-3">
-        <Link href="/clients" className="text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/clients" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>
           Clients
         </Link>
-        <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/settings" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>
           Settings
         </Link>
-        <Button className="gap-2" onClick={onNewBooking}>
+        <Button
+          className="gap-2 text-white hover:opacity-90"
+          style={{ backgroundColor: 'var(--rs-primary)' }}
+          onClick={onNewBooking}
+        >
           <Plus className="h-4 w-4" />
           New Booking
         </Button>
