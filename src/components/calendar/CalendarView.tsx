@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { TeamMember, CalendarBooking } from '@/lib/types'
 import { getTodayString } from '@/lib/calendar-helpers'
 import { fetchBookingsForDate } from '@/lib/fetch-bookings'
@@ -40,17 +40,21 @@ export function CalendarView({ teamMembers, initialBookings, initialDate }: Cale
     return `${ny}-${nm}-${nd}`
   }
 
+  const isInitialMount = useRef(true)
+
   const loadBookings = useCallback(async (date: string) => {
     const data = await fetchBookingsForDate(date)
     setBookings(data)
   }, [])
 
-  // Re-fetch when date changes via navigation only
+  // Re-fetch when date changes — skip initial mount (already have server data)
   useEffect(() => {
-    if (currentDate !== initialDate) {
-      loadBookings(currentDate)
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
     }
-  }, [currentDate, initialDate, loadBookings])
+    loadBookings(currentDate)
+  }, [currentDate, loadBookings])
 
   function openModal(teamMemberId: string, time: string) {
     setSlotTeamMemberId(teamMemberId)
