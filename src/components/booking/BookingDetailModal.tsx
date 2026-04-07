@@ -23,7 +23,7 @@ interface BookingDetailModalProps {
   open: boolean
   bookingId: string | null
   onClose: () => void
-  onSaved: () => void
+  onSaved: () => void | Promise<void>
   teamMembers: TeamMember[]
   businessHours: BusinessHours[]
   loyaltyEnabled: boolean
@@ -124,9 +124,20 @@ export function BookingDetailModal({
     if (!detail || !selectedService) return
     setSaving(true)
 
-    // Capture previous status for loyalty event diffing
+    // Capture previous status BEFORE the Supabase update so we can diff
+    // and decide which loyalty events (if any) to fire.
     const prevStatus = detail.status
     const newStatus = status
+
+    // Bug 1 debug instrumentation — leave in for now while loyalty rules
+    // are still settling. Removable once rules are stable.
+    console.log('[BookingDetailModal] save', {
+      bookingId: detail.booking_id,
+      customerId: detail.customer_id,
+      prevStatus,
+      newStatus,
+      loyaltyEnabled,
+    })
 
     // Assemble start_at as TEXT — space separated, no T, no seconds, never new Date()
     const startAt = `${date} ${time}`
@@ -164,13 +175,20 @@ export function BookingDetailModal({
     }
 
     // Loyalty side effects — only when the feature flag is on.
-    // Fire on status transitions, never retroactively.
-    if (loyaltyEnabled) {
-      const wasVisit = prevStatus === 'ARRIVED' || prevStatus === 'CONFIRMED'
+    // Fire on status TRANSITIONS only (newStatus !== prevStatus) so saves
+    // that don't change the status never double-credit.
+    if (loyaltyEnabled && newStatus !== prevStatus) {
       const isVisit = newStatus === 'ARRIVED' || newStatus === 'CONFIRMED'
 
-      if (isVisit && !wasVisit) {
-        // VISIT_SPEND uses the service price as the points value
+      // Bug 1 fix: VISIT_SPEND must fire on the common CONFIRMED → ARRIVED
+      // transition. The original spec gate (prevStatus ∉ {ARRIVED, CONFIRMED})
+      // suppressed this because new bookings are seeded as CONFIRMED. We now
+      // fire whenever the status genuinely changes INTO the visit set.
+      if (isVisit) {
+        console.log('[BookingDetailModal] firing VISIT_SPEND', {
+          customerId: detail.customer_id,
+          points: selectedService.price,
+        })
         await addLoyaltyEvent(
           detail.customer_id,
           'VISIT_SPEND',
@@ -185,7 +203,23 @@ export function BookingDetailModal({
           .eq('id', detail.customer_id)
       }
 
-      if (newStatus === 'NO SHOW' && prevStatus !== 'NO SHOW') {
+      // Bug 3: LATE_CANCEL_PENALTY on first transition into LATE
+      if (newStatus === 'LATE') {
+        console.log('[BookingDetailModal] firing LATE_CANCEL_PENALTY', {
+          customerId: detail.customer_id,
+        })
+        await addLoyaltyEvent(
+          detail.customer_id,
+          'LATE_CANCEL_PENALTY',
+          -10,
+          'Auto: late',
+        )
+      }
+
+      if (newStatus === 'NO SHOW') {
+        console.log('[BookingDetailModal] firing NO_SHOW_PENALTY', {
+          customerId: detail.customer_id,
+        })
         await addLoyaltyEvent(
           detail.customer_id,
           'NO_SHOW_PENALTY',
@@ -195,8 +229,12 @@ export function BookingDetailModal({
       }
     }
 
+    // Bug 2 fix: AWAIT the parent's reload so the booking grid actually has
+    // the new status painted before the modal closes. Without the await this
+    // was a fire-and-forget call that raced with onClose() — the calendar
+    // appeared to keep the old status until another booking was touched.
+    await onSaved()
     setSaving(false)
-    onSaved()
     onClose()
   }
 
@@ -210,10 +248,15 @@ export function BookingDetailModal({
       .update({ status: 'CANCELLED' })
       .eq('id', detail.booking_id)
 
-    setCancelling(false)
-    if (error) return
+    if (error) {
+      setCancelling(false)
+      return
+    }
 
-    onSaved()
+    // Bug 2 fix: await the parent reload before closing so the cancelled
+    // booking disappears from the grid in the same tick.
+    await onSaved()
+    setCancelling(false)
     onClose()
   }
 

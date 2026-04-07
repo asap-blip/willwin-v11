@@ -24,7 +24,7 @@ interface SelectedClient {
 interface NewBookingModalProps {
   open: boolean
   onClose: () => void
-  onSaved: () => void
+  onSaved: () => void | Promise<void>
   teamMembers: TeamMember[]
   businessHours: BusinessHours[]
   prefilledTeamMemberId: string
@@ -234,7 +234,10 @@ export function NewBookingModal({
       return
     }
 
-    onSaved()
+    // Bug 2 fix companion: await reload before close so the new booking
+    // is painted on the calendar grid before the modal disappears.
+    await onSaved()
+    setSaving(false)
     onClose()
   }
 
