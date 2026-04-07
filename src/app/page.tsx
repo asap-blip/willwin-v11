@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { getTodayString } from '@/lib/calendar-helpers'
 import { fetchBookingsForDate } from '@/lib/fetch-bookings'
+import { getFeatures } from '@/lib/features'
 import { CalendarView } from '@/components/calendar/CalendarView'
 import type { TeamMember, BusinessHours } from '@/lib/types'
 
@@ -23,6 +24,7 @@ export default async function Home() {
     .order('day_of_week')
 
   const bookings = await fetchBookingsForDate(today)
+  const features = await getFeatures()
 
   return (
     <CalendarView
@@ -30,6 +32,7 @@ export default async function Home() {
       businessHours={(businessHours as BusinessHours[]) ?? []}
       initialBookings={bookings}
       initialDate={today}
+      loyaltyEnabled={features?.loyalty_tiers ?? false}
     />
   )
 }

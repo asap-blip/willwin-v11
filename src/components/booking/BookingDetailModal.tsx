@@ -14,6 +14,8 @@ import {
   techWorksOnDay,
 } from '@/lib/calendar-helpers'
 import { fetchBookingDetail, fetchCustomerVisitStats } from '@/lib/fetch-booking-detail'
+import { addLoyaltyEvent } from '@/lib/loyalty-events'
+import { TierBadge } from '@/components/loyalty/TierBadge'
 
 const EDITABLE_STATUSES = ['CONFIRMED', 'ARRIVED', 'LATE', 'NO SHOW']
 
@@ -24,6 +26,7 @@ interface BookingDetailModalProps {
   onSaved: () => void
   teamMembers: TeamMember[]
   businessHours: BusinessHours[]
+  loyaltyEnabled: boolean
 }
 
 export function BookingDetailModal({
@@ -33,6 +36,7 @@ export function BookingDetailModal({
   onSaved,
   teamMembers,
   businessHours,
+  loyaltyEnabled,
 }: BookingDetailModalProps) {
   // Loading state
   const [detail, setDetail] = useState<BookingDetail | null>(null)
@@ -120,6 +124,10 @@ export function BookingDetailModal({
     if (!detail || !selectedService) return
     setSaving(true)
 
+    // Capture previous status for loyalty event diffing
+    const prevStatus = detail.status
+    const newStatus = status
+
     // Assemble start_at as TEXT — space separated, no T, no seconds, never new Date()
     const startAt = `${date} ${time}`
 
@@ -129,7 +137,7 @@ export function BookingDetailModal({
       .from('bookings')
       .update({
         start_at: startAt,
-        status,
+        status: newStatus,
         notes: notes.trim() || null,
       })
       .eq('id', detail.booking_id)
@@ -153,6 +161,38 @@ export function BookingDetailModal({
     if (segErr) {
       setSaving(false)
       return
+    }
+
+    // Loyalty side effects — only when the feature flag is on.
+    // Fire on status transitions, never retroactively.
+    if (loyaltyEnabled) {
+      const wasVisit = prevStatus === 'ARRIVED' || prevStatus === 'CONFIRMED'
+      const isVisit = newStatus === 'ARRIVED' || newStatus === 'CONFIRMED'
+
+      if (isVisit && !wasVisit) {
+        // VISIT_SPEND uses the service price as the points value
+        await addLoyaltyEvent(
+          detail.customer_id,
+          'VISIT_SPEND',
+          selectedService.price,
+          'Auto: visit spend',
+        )
+        // Update last_visit_at to the booking date (sliced — never new Date())
+        // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+        await supabase
+          .from('customers')
+          .update({ last_visit_at: startAt.slice(0, 10) })
+          .eq('id', detail.customer_id)
+      }
+
+      if (newStatus === 'NO SHOW' && prevStatus !== 'NO SHOW') {
+        await addLoyaltyEvent(
+          detail.customer_id,
+          'NO_SHOW_PENALTY',
+          -25,
+          'Auto: no-show',
+        )
+      }
     }
 
     setSaving(false)
@@ -219,12 +259,17 @@ export function BookingDetailModal({
                       <User className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
-                      <Link
-                        href={`/clients/${detail.customer_id}`}
-                        className="text-sm font-medium text-primary hover:underline"
-                      >
-                        {detail.customer_first_name} {detail.customer_last_name}
-                      </Link>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/clients/${detail.customer_id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
+                          {detail.customer_first_name} {detail.customer_last_name}
+                        </Link>
+                        {loyaltyEnabled && detail.customer_tier && (
+                          <TierBadge tier={detail.customer_tier} />
+                        )}
+                      </div>
                       {detail.customer_phone && (
                         <p className="text-sm text-muted-foreground">{detail.customer_phone}</p>
                       )}

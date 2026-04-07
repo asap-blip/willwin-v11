@@ -2,6 +2,7 @@
 
 import type { CalendarBooking } from '@/lib/types'
 import { durationToHeight } from '@/lib/calendar-helpers'
+import { TierBadge } from '@/components/loyalty/TierBadge'
 
 const STATUS_STYLES: Record<string, string> = {
   CONFIRMED: 'bg-green-100 text-green-800',
@@ -12,10 +13,11 @@ const STATUS_STYLES: Record<string, string> = {
 
 interface BookingCardProps {
   booking: CalendarBooking
+  loyaltyEnabled: boolean
   onEdit: (bookingId: string) => void
 }
 
-export function BookingCard({ booking, onEdit }: BookingCardProps) {
+export function BookingCard({ booking, loyaltyEnabled, onEdit }: BookingCardProps) {
   const height = durationToHeight(booking.duration_minutes)
   const statusClass = STATUS_STYLES[booking.status] ?? 'bg-gray-100 text-gray-800'
 
@@ -49,6 +51,9 @@ export function BookingCard({ booking, onEdit }: BookingCardProps) {
         <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusClass}`}>
           {booking.status}
         </span>
+        {loyaltyEnabled && booking.customer_loyalty_tier && (
+          <TierBadge tier={booking.customer_loyalty_tier} />
+        )}
         {booking.notes && (
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-500 flex-shrink-0" title="Has notes" />
         )}

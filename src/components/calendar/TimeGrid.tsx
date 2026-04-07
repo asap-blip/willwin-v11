@@ -16,11 +16,12 @@ interface TimeGridProps {
   teamMembers: TeamMember[]
   bookings: CalendarBooking[]
   hours: BusinessHours
+  loyaltyEnabled: boolean
   onSlotClick: (teamMemberId: string, time: string) => void
   onBookingClick: (bookingId: string) => void
 }
 
-export function TimeGrid({ teamMembers, bookings, hours, onSlotClick, onBookingClick }: TimeGridProps) {
+export function TimeGrid({ teamMembers, bookings, hours, loyaltyEnabled, onSlotClick, onBookingClick }: TimeGridProps) {
   const slots = useMemo(
     () => generateTimeSlots(hours.open_time, hours.close_time),
     [hours.open_time, hours.close_time],
@@ -124,7 +125,11 @@ export function TimeGrid({ teamMembers, bookings, hours, onSlotClick, onBookingC
                   const top = timeToOffsetFrom(time, hours.open_time)
                   return (
                     <div key={booking.id} className="absolute inset-x-0" style={{ top }}>
-                      <BookingCard booking={booking} onEdit={onBookingClick} />
+                      <BookingCard
+                        booking={booking}
+                        loyaltyEnabled={loyaltyEnabled}
+                        onEdit={onBookingClick}
+                      />
                     </div>
                   )
                 })}

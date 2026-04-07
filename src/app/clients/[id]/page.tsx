@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Customer, TeamMember } from '@/lib/types'
 import { ClientProfileView } from '@/components/client/ClientProfileView'
+import { getFeatures } from '@/lib/features'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export default async function ClientProfilePage({ params }: PageProps) {
   const { id } = await params
 
   // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-  const [customerResult, teamMembersResult] = await Promise.all([
+  const [customerResult, teamMembersResult, features] = await Promise.all([
     supabase
       .from('customers')
       .select('*')
@@ -23,6 +24,7 @@ export default async function ClientProfilePage({ params }: PageProps) {
       .select('id, name, is_active')
       .eq('is_active', true)
       .order('name'),
+    getFeatures(),
   ])
 
   if (!customerResult.data) {
@@ -37,6 +39,7 @@ export default async function ClientProfilePage({ params }: PageProps) {
     <ClientProfileView
       customer={customerResult.data as Customer}
       teamMembers={(teamMembersResult.data as TeamMember[]) ?? []}
+      loyaltyEnabled={features?.loyalty_tiers ?? false}
     />
   )
 }

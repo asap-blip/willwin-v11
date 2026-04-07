@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import type { Customer, TeamMember } from '@/lib/types'
 import { ClientProfileForm } from './ClientProfileForm'
 import { BookingHistory } from './BookingHistory'
+import { LoyaltySection } from '@/components/loyalty/LoyaltySection'
 
 interface ClientStats {
   visitCount: number
@@ -19,9 +20,10 @@ interface ClientStats {
 interface ClientProfileViewProps {
   customer: Customer
   teamMembers: TeamMember[]
+  loyaltyEnabled: boolean
 }
 
-export function ClientProfileView({ customer, teamMembers }: ClientProfileViewProps) {
+export function ClientProfileView({ customer, teamMembers, loyaltyEnabled }: ClientProfileViewProps) {
   const [stats, setStats] = useState<ClientStats>({
     visitCount: 0,
     lastVisit: null,
@@ -127,6 +129,15 @@ export function ClientProfileView({ customer, teamMembers }: ClientProfileViewPr
             <BookingHistory customerId={customer.id} />
           </div>
         </div>
+
+        {/* Loyalty — only when feature flag is on; zero impact otherwise */}
+        {loyaltyEnabled && (
+          <LoyaltySection
+            customerId={customer.id}
+            loyaltyPoints={customer.loyalty_points}
+            loyaltyTier={customer.loyalty_tier}
+          />
+        )}
       </div>
     </div>
   )

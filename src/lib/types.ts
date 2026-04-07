@@ -34,6 +34,18 @@ export interface Customer {
   birthday: string | null
   referred_by: string | null
   preferred_tech_id: string | null
+  loyalty_points: number | null
+  loyalty_tier: string | null
+  last_visit_at: string | null
+}
+
+export interface LoyaltyEvent {
+  id: string
+  customer_id: string
+  event_type: string
+  points: number
+  note: string | null
+  created_at: string
 }
 
 export interface Booking {
@@ -61,6 +73,7 @@ export interface BookingDetail {
   customer_phone: string | null
   customer_alert: string | null
   customer_notes: string | null
+  customer_tier: string | null
   team_member_id: string
   service_id: string
   service_name: string
@@ -78,6 +91,7 @@ export interface CalendarBooking {
   notes: string | null
   customer_first_name: string
   customer_last_name: string
+  customer_loyalty_tier: string | null
   service_name: string
   service_price: number
   team_member_id: string

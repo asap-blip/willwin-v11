@@ -14,6 +14,7 @@ interface CalendarViewProps {
   businessHours: BusinessHours[]
   initialBookings: CalendarBooking[]
   initialDate: string
+  loyaltyEnabled: boolean
 }
 
 export function CalendarView({
@@ -21,6 +22,7 @@ export function CalendarView({
   businessHours,
   initialBookings,
   initialDate,
+  loyaltyEnabled,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(initialDate)
   const [bookings, setBookings] = useState<CalendarBooking[]>(initialBookings)
@@ -114,6 +116,7 @@ export function CalendarView({
         teamMembers={techsForDay}
         bookings={bookings}
         hours={hoursForDay}
+        loyaltyEnabled={loyaltyEnabled}
         onSlotClick={openModal}
         onBookingClick={handleBookingClick}
       />
@@ -134,6 +137,7 @@ export function CalendarView({
         onSaved={() => loadBookings(currentDate)}
         teamMembers={teamMembers}
         businessHours={businessHours}
+        loyaltyEnabled={loyaltyEnabled}
       />
     </div>
   )

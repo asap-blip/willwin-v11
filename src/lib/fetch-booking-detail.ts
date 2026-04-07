@@ -26,7 +26,8 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
           last_name,
           phone,
           alert,
-          notes
+          notes,
+          loyalty_tier
         )
       ),
       service:services!inner (
@@ -54,6 +55,7 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
     customer_phone: customer.phone as string | null,
     customer_alert: (customer.alert ?? null) as string | null,
     customer_notes: customer.notes as string | null,
+    customer_tier: (customer.loyalty_tier ?? null) as string | null,
     team_member_id: seg.team_member_id as string,
     service_id: service.id as string,
     service_name: service.name as string,
