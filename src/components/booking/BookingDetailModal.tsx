@@ -124,13 +124,17 @@ export function BookingDetailModal({
     if (!detail || !selectedService) return
     setSaving(true)
 
-    // Capture previous status BEFORE the Supabase update so we can diff
-    // and decide which loyalty events (if any) to fire.
+    // Bug A — capture prevStatus from the ORIGINAL fetched booking data
+    // (`detail.status`), NOT from the form `status` state. `detail` is
+    // populated once in the load effect and is never mutated by edits, so
+    // it preserves what the DB had when the modal opened. `status` is the
+    // form value the user just chose.
     const prevStatus = detail.status
     const newStatus = status
 
-    // Bug 1 debug instrumentation — leave in for now while loyalty rules
-    // are still settling. Removable once rules are stable.
+    // Loyalty debug instrumentation — confirms prev/new are read correctly
+    // before the Supabase update fires. Removable once loyalty rules are
+    // confirmed stable in production.
     console.log('[BookingDetailModal] save', {
       bookingId: detail.booking_id,
       customerId: detail.customer_id,
@@ -174,17 +178,16 @@ export function BookingDetailModal({
       return
     }
 
-    // Loyalty side effects — only when the feature flag is on.
-    // Fire on status TRANSITIONS only (newStatus !== prevStatus) so saves
-    // that don't change the status never double-credit.
-    if (loyaltyEnabled && newStatus !== prevStatus) {
+    // Loyalty side effects — only when the feature flag is on. Each rule
+    // checks its own per-event transition gate so saves that don't move
+    // status never double-credit.
+    if (loyaltyEnabled) {
       const isVisit = newStatus === 'ARRIVED' || newStatus === 'CONFIRMED'
+      const wasVisit = prevStatus === 'ARRIVED' || prevStatus === 'CONFIRMED'
 
-      // Bug 1 fix: VISIT_SPEND must fire on the common CONFIRMED → ARRIVED
-      // transition. The original spec gate (prevStatus ∉ {ARRIVED, CONFIRMED})
-      // suppressed this because new bookings are seeded as CONFIRMED. We now
-      // fire whenever the status genuinely changes INTO the visit set.
-      if (isVisit) {
+      // Bug A — VISIT_SPEND: newStatus ∈ {ARRIVED, CONFIRMED} AND
+      //                       prevStatus ∉ {ARRIVED, CONFIRMED}
+      if (isVisit && !wasVisit) {
         console.log('[BookingDetailModal] firing VISIT_SPEND', {
           customerId: detail.customer_id,
           points: selectedService.price,
@@ -203,8 +206,8 @@ export function BookingDetailModal({
           .eq('id', detail.customer_id)
       }
 
-      // Bug 3: LATE_CANCEL_PENALTY on first transition into LATE
-      if (newStatus === 'LATE') {
+      // Bug C — LATE_CANCEL_PENALTY: newStatus === 'LATE' AND prevStatus !== 'LATE'
+      if (newStatus === 'LATE' && prevStatus !== 'LATE') {
         console.log('[BookingDetailModal] firing LATE_CANCEL_PENALTY', {
           customerId: detail.customer_id,
         })
@@ -216,7 +219,8 @@ export function BookingDetailModal({
         )
       }
 
-      if (newStatus === 'NO SHOW') {
+      // NO_SHOW_PENALTY: newStatus === 'NO SHOW' AND prevStatus !== 'NO SHOW'
+      if (newStatus === 'NO SHOW' && prevStatus !== 'NO SHOW') {
         console.log('[BookingDetailModal] firing NO_SHOW_PENALTY', {
           customerId: detail.customer_id,
         })

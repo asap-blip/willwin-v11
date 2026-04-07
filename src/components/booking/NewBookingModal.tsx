@@ -145,6 +145,13 @@ export function NewBookingModal({
       const dayStart = `${date} 00:00:00`
       const dayEnd = `${date}T23:59:59`
 
+      // T-BUG-01 — Slot blocking rule:
+      //   ALL booking statuses block a slot EXCEPT 'CANCELLED'.
+      //   That includes NO SHOW, LATE, ARRIVED, and CONFIRMED.
+      // The .neq filter is namespaced to the joined `booking.status` column
+      // (NOT `appointment_segments.status` — that column does not exist).
+      // Combined with `bookings!inner`, segments whose booking is CANCELLED
+      // are excluded entirely from the result set.
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
       const { data: segments } = await supabase
         .from('appointment_segments')
