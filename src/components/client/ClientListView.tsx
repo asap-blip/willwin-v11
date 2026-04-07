@@ -227,6 +227,7 @@ function AddClientModal({
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -240,6 +241,7 @@ function AddClientModal({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone: phone.trim(),
+        ...(email.trim() ? { email: email.trim() } : {}),
       })
       .select('id')
       .single()
@@ -286,6 +288,16 @@ function AddClientModal({
               type="text"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </fieldset>
+          <fieldset>
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Optional"
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </fieldset>
