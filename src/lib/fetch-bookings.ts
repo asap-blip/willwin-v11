@@ -33,6 +33,7 @@ export async function fetchBookingsForDate(date: string): Promise<CalendarBookin
     `)
     .gte('booking.start_at', dayStart)
     .lte('booking.start_at', dayEnd)
+    .neq('booking.status', 'CANCELLED')
 
   return (segments ?? []).map((seg: Record<string, unknown>) => {
     const booking = seg.booking as Record<string, unknown>

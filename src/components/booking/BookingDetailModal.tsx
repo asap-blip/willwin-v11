@@ -52,6 +52,7 @@ export function BookingDetailModal({
     if (!open || !bookingId) return
     setLoading(true)
     setConfirmCancel(false)
+    setDetail(null)
 
     async function load() {
       const [det, svcResult] = await Promise.all([
