@@ -67,7 +67,7 @@ export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: T
           type="button"
           onClick={handleLogout}
           className="text-sm hover:underline"
-          style={{ color: 'var(--rs-neutral)' }}
+          style={{ color: 'var(--rs-text-primary)' }}
         >
           Logout
         </button>
