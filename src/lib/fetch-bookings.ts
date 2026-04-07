@@ -2,7 +2,9 @@ import { supabase } from '@/lib/supabase'
 import type { CalendarBooking } from '@/lib/types'
 
 export async function fetchBookingsForDate(date: string): Promise<CalendarBooking[]> {
-  const dayStart = `${date}T00:00:00`
+  // Use space for dayStart and T for dayEnd to capture both separator formats
+  // Space (0x20) < T (0x54), so " 00:00:00" is the lowest and "T23:59:59" is the highest
+  const dayStart = `${date} 00:00:00`
   const dayEnd = `${date}T23:59:59`
 
   const { data: segments } = await supabase
