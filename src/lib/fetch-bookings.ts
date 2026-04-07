@@ -7,7 +7,7 @@ export async function fetchBookingsForDate(date: string): Promise<CalendarBookin
   const dayStart = `${date} 00:00:00`
   const dayEnd = `${date}T23:59:59`
 
-  const { data: segments } = await supabase
+  const { data: segments, error } = await supabase
     .from('appointment_segments')
     .select(`
       id,
@@ -35,6 +35,20 @@ export async function fetchBookingsForDate(date: string): Promise<CalendarBookin
     .gte('booking.start_at', dayStart)
     .lte('booking.start_at', dayEnd)
     .neq('booking.status', 'CANCELLED')
+
+  // Bug 1 diagnostic — confirm every non-cancelled status comes back from
+  // Supabase. Filter chain above is .neq('booking.status','CANCELLED') only.
+  console.log('[fetch-bookings] raw response', {
+    date,
+    dayStart,
+    dayEnd,
+    error,
+    count: segments?.length ?? 0,
+    statuses: (segments ?? []).map(
+      (s: Record<string, unknown>) =>
+        (s.booking as Record<string, unknown> | null)?.status,
+    ),
+  })
 
   return (segments ?? []).map((seg: Record<string, unknown>) => {
     const booking = seg.booking as Record<string, unknown>

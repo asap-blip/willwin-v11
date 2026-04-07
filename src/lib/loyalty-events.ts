@@ -11,22 +11,40 @@ export async function addLoyaltyEvent(
   customerId: string,
   eventType: string,
   points: number,
-  note?: string,
-  bookingId?: string,
+  note: string | null,
+  bookingId: string,
 ) {
   // Bug 3 — dedupe per booking + event type. If this booking has already
   // fired this event, skip the insert. The customer aggregates already
   // include the prior event so there's nothing to recompute.
-  if (bookingId) {
-    const { data: existing } = await supabase
-      .from('loyalty_events')
-      .select('id')
-      .eq('customer_id', customerId)
-      .eq('booking_id', bookingId)
-      .eq('event_type', eventType)
-      .maybeSingle()
+  // Hardening: bookingId is REQUIRED. Without it the dedupe filter cannot
+  // run and we'd silently double-credit. Throw loudly so callers can't
+  // forget to pass it.
+  if (!bookingId) {
+    throw new Error(
+      `addLoyaltyEvent called without bookingId for customer=${customerId} event=${eventType}`,
+    )
+  }
 
-    if (existing) return null
+  const { data: existing, error: dedupeErr } = await supabase
+    .from('loyalty_events')
+    .select('id')
+    .eq('customer_id', customerId)
+    .eq('booking_id', bookingId)
+    .eq('event_type', eventType)
+    .maybeSingle()
+
+  console.log('[addLoyaltyEvent] dedupe check', {
+    customerId,
+    bookingId,
+    eventType,
+    existing,
+    dedupeErr,
+  })
+
+  if (existing) {
+    console.log('[addLoyaltyEvent] skip — already fired for this booking')
+    return null
   }
 
   // Insert the event

@@ -271,7 +271,8 @@ export function BookingDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay */}
+      {/* Overlay — Bug 2: dismissing the modal must NEVER call onSaved.
+          onSaved fires only from handleSave / handleCancelBooking. */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Panel — wider for two-panel layout */}
