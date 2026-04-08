@@ -1,21 +1,25 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDateHeading } from '@/lib/calendar-helpers'
+import { MonthPicker } from './MonthPicker'
 
 interface TopBarProps {
   currentDate: string // YYYY-MM-DD
   onPrev: () => void
   onNext: () => void
   onToday: () => void
+  onPickDate: (date: string) => void
   onNewBooking: () => void
 }
 
-export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: TopBarProps) {
+export function TopBar({ currentDate, onPrev, onNext, onToday, onPickDate, onNewBooking }: TopBarProps) {
   const router = useRouter()
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -52,9 +56,26 @@ export function TopBar({ currentDate, onPrev, onNext, onToday, onNewBooking }: T
         >
           Today
         </Button>
-        <h1 className="text-lg font-semibold ml-2" style={{ fontFamily: 'var(--font-display)', color: 'var(--rs-text-primary)' }}>
-          {formatDateHeading(currentDate)}
-        </h1>
+        {/* Date label is the trigger for the month picker popover */}
+        <div className="relative ml-2">
+          <button
+            type="button"
+            onClick={() => setPickerOpen((v) => !v)}
+            className="text-lg font-semibold hover:underline underline-offset-4 decoration-[var(--rs-primary-light)]"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--rs-text-primary)' }}
+            aria-haspopup="dialog"
+            aria-expanded={pickerOpen}
+          >
+            {formatDateHeading(currentDate)}
+          </button>
+          {pickerOpen && (
+            <MonthPicker
+              selectedDate={currentDate}
+              onSelect={(d) => onPickDate(d)}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <Link href="/clients" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>

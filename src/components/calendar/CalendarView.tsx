@@ -131,6 +131,7 @@ export function CalendarView({
         onPrev={() => setCurrentDate((d) => shiftDate(d, -1))}
         onNext={() => setCurrentDate((d) => shiftDate(d, 1))}
         onToday={() => setCurrentDate(getTodayString())}
+        onPickDate={(d) => setCurrentDate(d)}
         onNewBooking={handleNewBookingButton}
       />
       <TimeGrid
