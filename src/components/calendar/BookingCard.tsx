@@ -58,6 +58,17 @@ export function BookingCard({ booking, loyaltyEnabled }: BookingCardProps) {
         {booking.notes && (
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-500 flex-shrink-0" title="Has notes" />
         )}
+        {/* T20 — surface client-booked origins with a subtle Rose Slate
+            pill; admin-booked cards stay clean. */}
+        {booking.source === 'client' && (
+          <span
+            className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full text-white"
+            style={{ backgroundColor: 'var(--rs-primary)' }}
+            title="Booked online by the client"
+          >
+            Online
+          </span>
+        )}
       </div>
     </div>
   )

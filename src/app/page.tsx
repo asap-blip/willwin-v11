@@ -40,6 +40,7 @@ export default async function Home() {
       initialBookings={bookings}
       initialDate={today}
       loyaltyEnabled={features?.loyalty_tiers ?? false}
+      adminSignature={features?.admin_signature ?? null}
     />
   )
 }

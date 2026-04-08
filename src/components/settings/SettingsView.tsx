@@ -4,15 +4,21 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ServicesTab } from './ServicesTab'
 import { TeamTab } from './TeamTab'
 import { HoursTab } from './HoursTab'
+import { GeneralTab } from './GeneralTab'
 
 export function SettingsView() {
   return (
-    <Tabs defaultValue="services">
+    <Tabs defaultValue="general">
       <TabsList>
+        <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="services">Services</TabsTrigger>
         <TabsTrigger value="team">Team</TabsTrigger>
         <TabsTrigger value="hours">Hours &amp; Availability</TabsTrigger>
       </TabsList>
+
+      <TabsContent value="general">
+        <GeneralTab />
+      </TabsContent>
 
       <TabsContent value="services">
         <ServicesTab />

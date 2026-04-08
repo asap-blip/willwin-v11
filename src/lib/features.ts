@@ -7,6 +7,7 @@ export type TenantFeatures = {
   tiered_pricing: boolean
   addon_services: boolean
   gap_optimization: boolean
+  admin_signature: string | null
 }
 
 export async function getFeatures(): Promise<TenantFeatures | null> {

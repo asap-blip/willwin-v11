@@ -19,6 +19,7 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
         start_at,
         status,
         notes,
+        source,
         customer_id,
         customer:customers!inner (
           id,
@@ -64,6 +65,7 @@ export async function fetchBookingDetail(bookingId: string): Promise<BookingDeta
     start_at: booking.start_at as string,
     status: booking.status as string,
     notes: booking.notes as string | null,
+    source: (booking.source ?? null) as string | null,
   }
 }
 

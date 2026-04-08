@@ -18,6 +18,7 @@ export async function fetchBookingsForDate(date: string): Promise<CalendarBookin
         start_at,
         status,
         notes,
+        source,
         customer:customers!inner (
           first_name,
           last_name,
@@ -61,6 +62,7 @@ export async function fetchBookingsForDate(date: string): Promise<CalendarBookin
       start_at: booking.start_at as string,
       status: booking.status as string,
       notes: booking.notes as string | null,
+      source: (booking.source ?? null) as string | null,
       customer_first_name: customer.first_name as string,
       customer_last_name: customer.last_name as string,
       customer_loyalty_tier: (customer.loyalty_tier ?? null) as string | null,

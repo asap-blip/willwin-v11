@@ -89,6 +89,7 @@ export interface BookingDetail {
   start_at: string
   status: string
   notes: string | null
+  source: string | null
 }
 
 export interface CalendarBooking {
@@ -96,6 +97,7 @@ export interface CalendarBooking {
   start_at: string
   status: string
   notes: string | null
+  source: string | null
   customer_first_name: string
   customer_last_name: string
   customer_loyalty_tier: string | null

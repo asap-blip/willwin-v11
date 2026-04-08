@@ -43,6 +43,7 @@ interface CalendarViewProps {
   initialBookings: CalendarBooking[]
   initialDate: string
   loyaltyEnabled: boolean
+  adminSignature: string | null
 }
 
 export function CalendarView({
@@ -52,6 +53,7 @@ export function CalendarView({
   initialBookings,
   initialDate,
   loyaltyEnabled,
+  adminSignature,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(initialDate)
   const [bookings, setBookings] = useState<CalendarBooking[]>(initialBookings)
@@ -314,6 +316,7 @@ export function CalendarView({
         businessHours={businessHours}
         techAvailability={techAvailability}
         loyaltyEnabled={loyaltyEnabled}
+        adminSignature={adminSignature}
       />
 
       {/* T-FEAT-05 — Move-to-reschedule confirmation dialog */}

@@ -30,6 +30,7 @@ interface BookingDetailModalProps {
   businessHours: BusinessHours[]
   techAvailability: TechAvailability[]
   loyaltyEnabled: boolean
+  adminSignature: string | null
 }
 
 export function BookingDetailModal({
@@ -41,6 +42,7 @@ export function BookingDetailModal({
   businessHours,
   techAvailability,
   loyaltyEnabled,
+  adminSignature,
 }: BookingDetailModalProps) {
   // Loading state
   const [detail, setDetail] = useState<BookingDetail | null>(null)
@@ -501,6 +503,14 @@ export function BookingDetailModal({
                       className="w-full px-3 py-2 border border-border rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </fieldset>
+
+                  {/* T20 — origin line. Subtle, sits under Notes so it
+                      doesn't compete with editable fields. */}
+                  <p className="text-xs text-muted-foreground">
+                    {detail.source === 'client'
+                      ? 'Booked online'
+                      : `Booked by ${adminSignature?.trim() || 'Admin'}`}
+                  </p>
                 </div>
               </div>
             </div>
