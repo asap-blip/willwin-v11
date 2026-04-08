@@ -17,10 +17,12 @@ const STATUS_STYLES: Record<string, string> = {
 interface BookingCardProps {
   booking: CalendarBooking
   loyaltyEnabled: boolean
-  onEdit: (bookingId: string) => void
 }
 
-export function BookingCard({ booking, loyaltyEnabled, onEdit }: BookingCardProps) {
+// Pure visual component — tap + drag are handled by the wrapper in
+// TimeGrid via pointer events (T-FEAT-06). Pointer events bubble from
+// this div up to the wrapper's onPointerDown by default.
+export function BookingCard({ booking, loyaltyEnabled }: BookingCardProps) {
   const height = durationToHeight(booking.duration_minutes)
   const statusClass = STATUS_STYLES[booking.status] ?? 'bg-gray-100 text-gray-800'
 
@@ -30,15 +32,11 @@ export function BookingCard({ booking, loyaltyEnabled, onEdit }: BookingCardProp
 
   return (
     <div
-      className="absolute inset-x-1 rounded-md px-2 py-1.5 overflow-hidden cursor-pointer border-l-[3px] transition-shadow hover:shadow-md"
+      className="absolute inset-x-1 rounded-md px-2 py-1.5 overflow-hidden border-l-[3px] transition-shadow hover:shadow-md"
       style={{
         height: `${height}px`,
         backgroundColor: bgColor,
         borderLeftColor: borderColor,
-      }}
-      onClick={(e) => {
-        e.stopPropagation()
-        onEdit(booking.id)
       }}
     >
       <p className="text-xs font-semibold truncate leading-tight" style={{ color: 'var(--rs-text-primary)' }}>
