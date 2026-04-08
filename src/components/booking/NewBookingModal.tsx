@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { getFeatures } from '@/lib/features'
 import type { TeamMember, Service, BusinessHours, TechAvailability } from '@/lib/types'
 import {
   formatTimeLabel,
@@ -57,6 +58,11 @@ export function NewBookingModal({
   // Services fetched on mount
   const [services, setServices] = useState<Service[]>([])
   const [servicesLoaded, setServicesLoaded] = useState(false)
+
+  // T-FEAT-03 — tenant feature flag gates the whole "Best Available" UI
+  const [gapOptimization, setGapOptimization] = useState(false)
+  const [bestLoading, setBestLoading] = useState(false)
+  const [bestError, setBestError] = useState<string | null>(null)
 
   // Day-of-week + business hours for the selected date
   const dayOfWeek = useMemo(() => getDayOfWeek(date), [date])
@@ -114,6 +120,74 @@ export function NewBookingModal({
     }
     loadServices()
   }, [open])
+
+  // T-FEAT-03 — fetch the gap_optimization feature flag on open. Resolved
+  // once per modal open; falls back to false on any fetch failure so a
+  // broken tenant_features row never flashes the button.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    async function loadFlag() {
+      const features = await getFeatures()
+      if (cancelled) return
+      setGapOptimization(features?.gap_optimization ?? false)
+    }
+    loadFlag()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
+  // Reset the best-available error message whenever the user touches the
+  // date / tech / service so a stale "no slots" never lingers.
+  useEffect(() => {
+    setBestError(null)
+  }, [date, teamMemberId, serviceId])
+
+  const selectedServiceForBest = services.find((s) => s.id === serviceId) ?? null
+  const canUseBestAvailable =
+    gapOptimization && !!date && !!selectedServiceForBest && !bestLoading
+
+  async function handleBestAvailable() {
+    if (!canUseBestAvailable || !selectedServiceForBest) return
+    setBestLoading(true)
+    setBestError(null)
+    try {
+      const res = await fetch('/api/bookings/best-available', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          // team_member_id is null = "any tech" — the endpoint scores
+          // across every available tech for the day and returns the
+          // winner.
+          team_member_id: teamMemberId || null,
+          service_id: selectedServiceForBest.id,
+          duration_minutes: selectedServiceForBest.duration_minutes,
+        }),
+      })
+      const data = (await res.json()) as {
+        slot: string | null
+        team_member_id?: string
+        tech_name?: string
+      }
+      if (!data.slot) {
+        setBestError('No available slots for this date.')
+        return
+      }
+      // Auto-fill time, and tech if it came back different (or the user
+      // was in "any tech" mode with teamMemberId === '').
+      setTime(data.slot)
+      if (data.team_member_id && data.team_member_id !== teamMemberId) {
+        setTeamMemberId(data.team_member_id)
+      }
+    } catch (err) {
+      console.error('[best-available] fetch failed', err)
+      setBestError('Could not compute best slot.')
+    } finally {
+      setBestLoading(false)
+    }
+  }
 
   // Conflict check state
   const [conflict, setConflict] = useState<string | null>(null)
@@ -325,6 +399,33 @@ export function NewBookingModal({
             )}
             {conflict && (
               <p className="mt-1.5 text-sm text-red-600">{conflict}</p>
+            )}
+
+            {/* T-FEAT-03 — Best Available button, gap_optimization-gated.
+                Disabled until date AND service are selected. Scored
+                server-side; autofills time (and tech when "any tech"). */}
+            {gapOptimization && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={handleBestAvailable}
+                  disabled={!canUseBestAvailable}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-white text-xs font-medium hover:bg-muted/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ color: 'var(--rs-text-primary)' }}
+                >
+                  {bestLoading ? (
+                    <>
+                      <span className="inline-block h-3 w-3 rounded-full border-2 border-muted-foreground/40 border-t-transparent animate-spin" />
+                      Finding best slot…
+                    </>
+                  ) : (
+                    <>✨ Best Available</>
+                  )}
+                </button>
+                {bestError && (
+                  <p className="mt-1.5 text-xs text-amber-600">{bestError}</p>
+                )}
+              </div>
             )}
           </fieldset>
 
