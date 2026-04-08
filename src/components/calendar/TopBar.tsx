@@ -81,6 +81,9 @@ export function TopBar({ currentDate, onPrev, onNext, onToday, onPickDate, onNew
         <Link href="/clients" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>
           Clients
         </Link>
+        <Link href="/reports" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>
+          Reports
+        </Link>
         <Link href="/settings" className="text-sm hover:underline" style={{ color: 'var(--rs-text-primary)' }}>
           Settings
         </Link>
