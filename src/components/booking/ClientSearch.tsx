@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Search, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { syncCustomerToLedger } from '@/lib/ledger-sync-client'
 
 interface SelectedClient {
   id: string
@@ -97,6 +98,14 @@ export function ClientSearch({ selectedClient, onSelect }: ClientSearchProps) {
       .single()
     setCreating(false)
     if (error || !data) return
+
+    // Fire-and-forget ledger sync — never block the UI on the Sheet write.
+    syncCustomerToLedger({
+      id: data.id,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      phone: newPhone.trim(),
+    }).catch(console.error)
 
     // Auto-select the new client — no re-search
     onSelect({ id: data.id, first_name: data.first_name, last_name: data.last_name })

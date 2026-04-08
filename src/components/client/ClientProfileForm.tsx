@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { syncCustomerToLedger } from '@/lib/ledger-sync-client'
 import type { Customer, TeamMember } from '@/lib/types'
 
 interface ClientProfileFormProps {
@@ -48,6 +49,18 @@ export function ClientProfileForm({ customer, teamMembers, onAlertChange }: Clie
     setSaving(false)
 
     if (!error) {
+      // Fire-and-forget ledger sync (T04.5) — Steven's independent data layer
+      syncCustomerToLedger({
+        id: customer.id,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: phone.trim(),
+        email: email.trim() || null,
+        language: customer.language ?? null,
+        loyalty_tier: customer.loyalty_tier ?? null,
+        loyalty_points: customer.loyalty_points ?? null,
+      }).catch(console.error)
+
       setSaved(true)
       onAlertChange(alert.trim() || null)
       setTimeout(() => setSaved(false), 2000)

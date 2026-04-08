@@ -43,6 +43,7 @@ export interface Customer {
   loyalty_points: number | null
   loyalty_tier: string | null
   last_visit_at: string | null
+  language: string | null
 }
 
 export interface LoyaltyEvent {

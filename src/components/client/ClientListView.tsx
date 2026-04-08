@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import { syncCustomerToLedger } from '@/lib/ledger-sync-client'
 
 interface ClientRow {
   id: string
@@ -249,6 +250,15 @@ function AddClientModal({
 
     setSaving(false)
     if (error || !data) return
+
+    // Fire-and-forget ledger sync (T04.5) — never block on the Sheet write.
+    syncCustomerToLedger({
+      id: data.id,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      phone: phone.trim(),
+      email: email.trim() || null,
+    }).catch(console.error)
 
     onCreated(data.id)
   }

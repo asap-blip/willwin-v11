@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { syncCustomerToLedger } from '@/lib/ledger-sync-client'
 import type { TeamMember, Service, BusinessHours, TechAvailability } from '@/lib/types'
 import {
   generateTimeSlots,
@@ -276,6 +277,15 @@ export function BookingFlow({
         customerId = existing.id
         // Update language preference on every booking — clients may switch UI.
         await supabase.from('customers').update({ language: lang }).eq('id', customerId)
+        // Fire-and-forget ledger sync of the existing customer with refreshed lang.
+        syncCustomerToLedger({
+          id: customerId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phoneTrim,
+          email: email.trim() || null,
+          language: lang,
+        }).catch(console.error)
       } else {
         const { data: created, error: cErr } = await supabase
           .from('customers')
@@ -290,6 +300,15 @@ export function BookingFlow({
           .single()
         if (cErr || !created) throw cErr ?? new Error('customer insert failed')
         customerId = created.id
+        // Fire-and-forget ledger sync of the freshly inserted customer.
+        syncCustomerToLedger({
+          id: customerId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phoneTrim,
+          email: email.trim() || null,
+          language: lang,
+        }).catch(console.error)
       }
 
       // 2. Resolve "no preference" → first available conflict-free tech.
