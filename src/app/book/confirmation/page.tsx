@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { bookingGet } from '@/lib/willwin-api'
 import { ConfirmationView, NotFoundView } from './ConfirmationView'
 
 export const dynamic = 'force-dynamic'
@@ -14,47 +14,19 @@ export default async function ConfirmationPage({ searchParams }: ConfirmationPag
     return <NotFoundView />
   }
 
-  const { data: booking } = await supabase
-    .from('bookings')
-    .select(`
-      id,
-      start_at,
-      customer:customers (first_name),
-      segments:appointment_segments (
-        team_member:team_members (name),
-        service:services (name)
-      )
-    `)
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!booking) {
+  try {
+    const booking = await bookingGet({ id })
+    return (
+      <ConfirmationView
+        firstName={booking.first_name}
+        serviceName={booking.service_name}
+        techName={booking.tech_name}
+        date={booking.date}
+        time={booking.time}
+      />
+    )
+  } catch (err) {
+    console.error('[confirmation] bookingGet failed:', err)
     return <NotFoundView />
   }
-
-  // Supabase typed result is loose — narrow at the boundary.
-  const customer = booking.customer as unknown as
-    | { first_name: string }
-    | null
-  const seg = (
-    booking.segments as unknown as {
-      team_member: { name: string } | null
-      service: { name: string } | null
-    }[]
-  )?.[0]
-
-  // start_at is TEXT — slice as string. Never new Date().
-  const startAt = booking.start_at as string
-  const date = startAt.slice(0, 10)
-  const time = startAt.slice(11, 16)
-
-  return (
-    <ConfirmationView
-      firstName={customer?.first_name ?? ''}
-      serviceName={seg?.service?.name ?? ''}
-      techName={seg?.team_member?.name ?? ''}
-      date={date}
-      time={time}
-    />
-  )
 }

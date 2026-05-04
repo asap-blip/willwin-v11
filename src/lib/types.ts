@@ -1,33 +1,16 @@
-export interface TeamMember {
-  id: string
-  name: string
-  color: string
-  avatar_url: string | null
-  is_active: boolean
-  working_days: string | null // comma-separated day numbers, e.g. "1,2,3,4,5,6"
-}
+// src/lib/types.ts
+//
+// Domain types for admin/internal pages.
+// Booking-flow wire types live in @/types/booking.
+// The four duplicates (TeamMember, BusinessHours, TechAvailability, Service)
+// are re-exported from @/types/booking so existing admin imports keep working.
 
-export interface BusinessHours {
-  id: string
-  day_of_week: number // 0 = Sunday ... 6 = Saturday
-  is_open: boolean
-  open_time: string // "HH:MM"
-  close_time: string // "HH:MM"
-}
-
-export interface TechAvailability {
-  id: string
-  team_member_id: string
-  day_of_week: number // 0 = Sunday ... 6 = Saturday
-}
-
-export interface Service {
-  id: string
-  name: string
-  duration_minutes: number
-  price: number
-  is_active: boolean
-}
+export type {
+  TeamMember,
+  BusinessHours,
+  TechAvailability,
+  Service,
+} from '@/types/booking'
 
 export interface Customer {
   id: string

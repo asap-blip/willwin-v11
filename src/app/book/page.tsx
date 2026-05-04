@@ -1,38 +1,41 @@
-import { supabase } from '@/lib/supabase'
-import type { TeamMember, Service, BusinessHours, TechAvailability } from '@/lib/types'
+import { bookingInit } from '@/lib/willwin-api'
 import { BookingFlow } from './BookingFlow'
 
 export const dynamic = 'force-dynamic'
 
 export default async function BookPage() {
-  // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-  const { data: services } = await supabase
-    .from('services')
-    .select('id, name, duration_minutes, price, is_active')
-    .eq('is_active', true)
-    .order('name')
-
-  const { data: teamMembers } = await supabase
-    .from('team_members')
-    .select('id, name, color, avatar_url, is_active, working_days')
-    .eq('is_active', true)
-    .order('name')
-
-  const { data: businessHours } = await supabase
-    .from('business_hours')
-    .select('id, day_of_week, is_open, open_time, close_time')
-    .order('day_of_week')
-
-  const { data: techAvailability } = await supabase
-    .from('tech_availability')
-    .select('id, team_member_id, day_of_week')
+  let initData
+  try {
+    initData = await bookingInit()
+  } catch (err) {
+    console.error('[book] bookingInit failed:', err)
+    return (
+      <main
+        className="min-h-screen w-full flex items-center justify-center"
+        style={{ backgroundColor: 'var(--rs-bg-page)' }}
+      >
+        <div className="px-5 text-center max-w-md">
+          <h1
+            className="text-2xl mb-2"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--rs-text-primary)' }}
+          >
+            Service temporarily unavailable
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--rs-neutral)' }}>
+            Something went wrong loading the booking page. Please try again
+            in a moment or call us directly.
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <BookingFlow
-      services={(services as Service[]) ?? []}
-      teamMembers={(teamMembers as TeamMember[]) ?? []}
-      businessHours={(businessHours as BusinessHours[]) ?? []}
-      techAvailability={(techAvailability as TechAvailability[]) ?? []}
+      services={initData.services}
+      teamMembers={initData.team_members}
+      businessHours={initData.business_hours}
+      techAvailability={initData.tech_availability}
     />
   )
 }

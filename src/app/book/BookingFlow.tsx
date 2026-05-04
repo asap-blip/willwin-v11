@@ -2,17 +2,18 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { syncCustomerToLedger } from '@/lib/ledger-sync-client'
-import type { TeamMember, Service, BusinessHours, TechAvailability } from '@/lib/types'
 import {
-  generateTimeSlots,
-  formatTimeLabel,
-  addMinutesToTimeString,
-  normalizeStartAt,
-  getDayOfWeek,
-  isTechAvailable,
-} from '@/lib/calendar-helpers'
+  bookingAvailability,
+  bookingCreate,
+  WillwinApiError,
+} from '@/lib/willwin-api'
+import type {
+  TeamMember,
+  Service,
+  BusinessHours,
+  TechAvailability,
+} from '@/types/booking'
+import { formatTimeLabel, getDayOfWeek, isTechAvailable } from '@/lib/calendar-helpers'
 
 // "No preference" sentinel — never collides with a real UUID.
 const NO_PREF = '__no_pref__'
@@ -46,6 +47,7 @@ const COPY = {
     requiredFields: 'Veuillez remplir tous les champs requis.',
     submitError: 'Une erreur est survenue. Veuillez réessayer.',
     noAvail: 'Aucune technicienne disponible à ce créneau.',
+    loadingSlots: 'Chargement…',
   },
   en: {
     title: 'Book your appointment',
@@ -75,6 +77,7 @@ const COPY = {
     requiredFields: 'Please fill in all required fields.',
     submitError: 'Something went wrong. Please try again.',
     noAvail: 'No tech available at this time.',
+    loadingSlots: 'Loading…',
   },
 } as const
 
@@ -122,8 +125,8 @@ export function BookingFlow({
 }: BookingFlowProps) {
   const router = useRouter()
 
-  // Language toggle — defaults to French (CLAUDE.md confirms customers.language default 'fr')
-  const [lang, setLang] = useState<Lang>('fr')
+  // Language toggle — defaults to English (Montreal salon, EN-default flow).
+  const [lang, setLang] = useState<Lang>('en')
   const t = COPY[lang]
 
   // Step machine
@@ -146,8 +149,10 @@ export function BookingFlow({
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // Conflict-detection state for the current (date, tech) pair
-  const [bookedSlots, setBookedSlots] = useState<{ start: string; durationMin: number }[]>([])
+  // Availability — computed by the n8n availability webhook
+  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === serviceId) ?? null,
@@ -164,12 +169,9 @@ export function BookingFlow({
   }, [businessHours])
 
   const dayOfWeek = useMemo(() => (date ? getDayOfWeek(date) : -1), [date])
-  const hoursForDay = useMemo<BusinessHours | null>(
-    () => businessHours.find((h) => h.day_of_week === dayOfWeek) ?? null,
-    [businessHours, dayOfWeek],
-  )
 
-  // Selected tech availability for the chosen date
+  // Selected tech availability for the chosen date — local check using the
+  // cached tech_availability table. Cheap, no webhook needed.
   const selectedTechAvailable = useMemo(() => {
     if (!date) return true
     if (teamMemberId === NO_PREF) {
@@ -179,71 +181,43 @@ export function BookingFlow({
     return isTechAvailable(techAvailability, teamMemberId, dayOfWeek)
   }, [date, dayOfWeek, teamMemberId, teamMembers, techAvailability])
 
-  // Fetch existing segments for the selected (tech, date). When "no preference"
-  // we skip — slot filtering is per-tech and a tech is picked at submit time.
+  // Fetch availability whenever date/tech/service changes.
+  // n8n owns slot generation, conflict detection, business-hours math.
   useEffect(() => {
-    if (!date || !hoursForDay || !hoursForDay.is_open) {
-      setBookedSlots([])
-      return
-    }
-    if (teamMemberId === NO_PREF) {
-      setBookedSlots([])
+    if (!date || !selectedService || !selectedTechAvailable) {
+      setAvailableSlots([])
       return
     }
     let cancelled = false
-    async function load() {
-      const dayStart = `${date} 00:00:00`
-      const dayEnd = `${date}T23:59:59`
-      // Same .neq filter as NewBookingModal — only CANCELLED frees the slot.
-      const { data } = await supabase
-        .from('appointment_segments')
-        .select(`
-          id,
-          duration_minutes,
-          booking:bookings!inner (start_at, status)
-        `)
-        .eq('team_member_id', teamMemberId)
-        .gte('booking.start_at', dayStart)
-        .lte('booking.start_at', dayEnd)
-        .neq('booking.status', 'CANCELLED')
-      if (cancelled) return
-      const rows = (data ?? []).map((seg) => {
-        const b = seg.booking as unknown as { start_at: string }
-        return { start: normalizeStartAt(b.start_at), durationMin: seg.duration_minutes }
+    setSlotsLoading(true)
+    setSlotsError(null)
+    bookingAvailability({
+      date,
+      team_member_id: teamMemberId === NO_PREF ? null : teamMemberId,
+      service_id: selectedService.id,
+      duration_minutes: selectedService.duration_minutes,
+    })
+      .then((res) => {
+        if (cancelled) return
+        if (!res.is_open || !res.tech_works_today) {
+          setAvailableSlots([])
+        } else {
+          setAvailableSlots(res.available_slots)
+        }
       })
-      setBookedSlots(rows)
-    }
-    load()
+      .catch((err) => {
+        if (cancelled) return
+        console.error('[BookingFlow] availability failed', err)
+        setSlotsError(t.submitError)
+        setAvailableSlots([])
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [date, teamMemberId, hoursForDay])
-
-  // Conflict-free slots for the selected service. A slot is OK when adding the
-  // service duration would not overlap any existing booking on this tech.
-  const availableSlots = useMemo<string[]>(() => {
-    if (!date || !hoursForDay || !hoursForDay.is_open || !selectedService) return []
-    const all = generateTimeSlots(hoursForDay.open_time, hoursForDay.close_time)
-    // Drop trailing close-time slot — bookings starting at close_time would
-    // never fit. e.g. open 09:00 close 17:00 → start slots 09:00 … 16:30
-    const candidates = all.slice(0, Math.max(0, all.length - 1))
-
-    return candidates.filter((slot) => {
-      const newStart = `${date} ${slot}`
-      const newEnd = addMinutesToTimeString(newStart, selectedService.duration_minutes)
-      // The whole booking must end at or before close_time
-      const closeAt = `${date} ${hoursForDay.close_time}`
-      if (newEnd > closeAt) return false
-      // No overlap with existing bookings (skip when "no preference")
-      if (teamMemberId === NO_PREF) return true
-      for (const b of bookedSlots) {
-        const existingEnd = addMinutesToTimeString(b.start, b.durationMin)
-        // Overlap: existingStart < newEnd AND existingEnd > newStart
-        if (b.start < newEnd && existingEnd > newStart) return false
-      }
-      return true
-    })
-  }, [date, hoursForDay, selectedService, bookedSlots, teamMemberId])
+  }, [date, teamMemberId, selectedService, selectedTechAvailable, t.submitError])
 
   // Reset time when slots list changes
   useEffect(() => {
@@ -264,124 +238,27 @@ export function BookingFlow({
     setSubmitError(null)
 
     try {
-      // 1. Resolve customer by phone — reuse if exists, otherwise insert.
-      const phoneTrim = phone.trim()
-      const { data: existing } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('phone', phoneTrim)
-        .maybeSingle()
-
-      let customerId: string
-      if (existing?.id) {
-        customerId = existing.id
-        // Update language preference on every booking — clients may switch UI.
-        await supabase.from('customers').update({ language: lang }).eq('id', customerId)
-        // Fire-and-forget ledger sync of the existing customer with refreshed lang.
-        syncCustomerToLedger({
-          id: customerId,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          phone: phoneTrim,
-          email: email.trim() || null,
-          language: lang,
-        }).catch(console.error)
-      } else {
-        const { data: created, error: cErr } = await supabase
-          .from('customers')
-          .insert({
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            phone: phoneTrim,
-            email: email.trim() || null,
-            language: lang,
-          })
-          .select('id')
-          .single()
-        if (cErr || !created) throw cErr ?? new Error('customer insert failed')
-        customerId = created.id
-        // Fire-and-forget ledger sync of the freshly inserted customer.
-        syncCustomerToLedger({
-          id: customerId,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          phone: phoneTrim,
-          email: email.trim() || null,
-          language: lang,
-        }).catch(console.error)
-      }
-
-      // 2. Resolve "no preference" → first available conflict-free tech.
-      let resolvedTechId = teamMemberId
-      const startAt = `${date} ${time}`
-      const endAt = addMinutesToTimeString(startAt, selectedService.duration_minutes)
-
-      if (resolvedTechId === NO_PREF) {
-        const dow = getDayOfWeek(date)
-        const candidates = teamMembers.filter((tm) =>
-          isTechAvailable(techAvailability, tm.id, dow),
-        )
-        let found: string | null = null
-        for (const tm of candidates) {
-          const dayStart = `${date} 00:00:00`
-          const dayEnd = `${date}T23:59:59`
-          const { data: segs } = await supabase
-            .from('appointment_segments')
-            .select(`
-              id,
-              duration_minutes,
-              booking:bookings!inner (start_at, status)
-            `)
-            .eq('team_member_id', tm.id)
-            .gte('booking.start_at', dayStart)
-            .lte('booking.start_at', dayEnd)
-            .neq('booking.status', 'CANCELLED')
-          const conflict = (segs ?? []).some((seg) => {
-            const b = seg.booking as unknown as { start_at: string }
-            const eStart = normalizeStartAt(b.start_at)
-            const eEnd = addMinutesToTimeString(eStart, seg.duration_minutes)
-            return eStart < endAt && eEnd > startAt
-          })
-          if (!conflict) {
-            found = tm.id
-            break
-          }
-        }
-        if (!found) {
-          setSubmitError(t.noAvail)
-          setSubmitting(false)
-          return
-        }
-        resolvedTechId = found
-      }
-
-      // 3. Insert booking — CONFIRMED + source='client' per spec
-      const { data: booking, error: bErr } = await supabase
-        .from('bookings')
-        .insert({
-          customer_id: customerId,
-          start_at: startAt,
-          status: 'CONFIRMED',
-          notes: note.trim() || null,
-          source: 'client',
-        })
-        .select('id')
-        .single()
-      if (bErr || !booking) throw bErr ?? new Error('booking insert failed')
-
-      // 4. Insert appointment segment
-      const { error: sErr } = await supabase.from('appointment_segments').insert({
-        booking_id: booking.id,
-        team_member_id: resolvedTechId,
+      const res = await bookingCreate({
         service_id: selectedService.id,
+        team_member_id: teamMemberId === NO_PREF ? null : teamMemberId,
+        date,
+        time,
         duration_minutes: selectedService.duration_minutes,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: phone.trim(),
+        email: email.trim() || null,
+        note: note.trim() || null,
+        language: lang,
       })
-      if (sErr) throw sErr
-
-      router.push(`/book/confirmation?id=${booking.id}`)
+      router.push(`/book/confirmation?id=${res.booking_id}`)
     } catch (err) {
       console.error('[BookingFlow] submit failed', err)
-      setSubmitError(t.submitError)
+      if (err instanceof WillwinApiError && err.code === 'no_tech_available') {
+        setSubmitError(t.noAvail)
+      } else {
+        setSubmitError(t.submitError)
+      }
       setSubmitting(false)
     }
   }
@@ -401,21 +278,21 @@ export function BookingFlow({
             {step === 4 && t.yourDetails}
           </h2>
         </div>
-        {/* Language toggle */}
+        {/* Language toggle — EN is the default; FR is opt-in */}
         <div className="flex items-center rounded-full border border-border overflow-hidden text-sm">
-          <button
-            type="button"
-            onClick={() => setLang('fr')}
-            className={`px-3 py-1.5 ${lang === 'fr' ? 'bg-primary text-primary-foreground' : 'bg-white'}`}
-          >
-            FR
-          </button>
           <button
             type="button"
             onClick={() => setLang('en')}
             className={`px-3 py-1.5 ${lang === 'en' ? 'bg-primary text-primary-foreground' : 'bg-white'}`}
           >
             EN
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang('fr')}
+            className={`px-3 py-1.5 ${lang === 'fr' ? 'bg-primary text-primary-foreground' : 'bg-white'}`}
+          >
+            FR
           </button>
         </div>
       </div>
@@ -503,7 +380,7 @@ export function BookingFlow({
                   >
                     <span
                       className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: tm.color }}
+                      style={{ backgroundColor: tm.color ?? undefined }}
                     />
                     <span className="font-medium">{tm.name}</span>
                   </button>
@@ -551,7 +428,11 @@ export function BookingFlow({
               {date && selectedTechAvailable && (
                 <div>
                   <label className="block text-sm font-medium mb-2">{t.pickTime}</label>
-                  {availableSlots.length === 0 ? (
+                  {slotsLoading ? (
+                    <p className="text-sm text-muted-foreground">{t.loadingSlots}</p>
+                  ) : slotsError ? (
+                    <p className="text-sm text-red-600">{slotsError}</p>
+                  ) : availableSlots.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noSlots}</p>
                   ) : (
                     <div className="grid grid-cols-3 gap-2">

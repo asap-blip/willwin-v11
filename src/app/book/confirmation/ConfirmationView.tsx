@@ -21,13 +21,13 @@ const COPY = {
   },
 } as const
 
-// FR is the fallback — initial render and any non-fr/non-en navigator value
-// land here. EN is only chosen when navigator.language starts with "en".
+// EN is the default — initial render and any non-fr/non-en navigator value
+// land here. FR is only chosen when navigator.language starts with "fr".
 function detectLang(): Lang {
-  if (typeof navigator === 'undefined') return 'fr'
+  if (typeof navigator === 'undefined') return 'en'
   const tag = (navigator.language || '').toLowerCase()
-  if (tag.startsWith('en')) return 'en'
-  return 'fr'
+  if (tag.startsWith('fr')) return 'fr'
+  return 'en'
 }
 
 interface Props {
@@ -39,10 +39,12 @@ interface Props {
 }
 
 export function ConfirmationView({ firstName, serviceName, techName, date, time }: Props) {
-  const [lang, setLang] = useState<Lang>('fr')
+  const [lang, setLang] = useState<Lang>('en')
+
   useEffect(() => {
     setLang(detectLang())
   }, [])
+
   const t = COPY[lang]
 
   return (
@@ -90,10 +92,10 @@ export function NotFoundView() {
     >
       <div className="px-5 text-center">
         <p className="text-base" style={{ color: 'var(--rs-text-primary)' }}>
-          Réservation introuvable.
+          Booking not found.
         </p>
         <p className="text-sm mt-1" style={{ color: 'var(--rs-neutral)' }}>
-          Booking not found.
+          Réservation introuvable.
         </p>
       </div>
     </main>
