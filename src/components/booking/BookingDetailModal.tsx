@@ -117,14 +117,13 @@ export function BookingDetailModal({
     [businessHours, dayOfWeek],
   )
   const isClosed = !!date && (!hoursForDay || !hoursForDay.is_open)
-  const slotsForDay = useMemo(
-  () =>
-    isClosed || !hoursForDay || !hoursForDay.open_time || !hoursForDay.close_time
-      ? []
-      : generateTimeSlots(hoursForDay.open_time, hoursForDay.close_time),
-  [hoursForDay, isClosed],
-)
-  )
+ const slotsForDay = useMemo(() => {
+  if (isClosed || !hoursForDay) return []
+  const { open_time, close_time } = hoursForDay
+  if (!open_time || !close_time) return []
+  return generateTimeSlots(open_time, close_time)
+}, [hoursForDay, isClosed])
+
   // Selected tech's availability on the chosen date. The dropdown shows the
   // full team list (the originally-assigned tech may legitimately be off);
   // Save is disabled and a warning shown when the picked tech is off.
