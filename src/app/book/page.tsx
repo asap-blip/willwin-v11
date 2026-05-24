@@ -1,12 +1,13 @@
-import { bookingInit } from '@/lib/willwin-api'
+import { bookingInitServer } from '@/lib/booking-init-server'
 import { BookingFlow } from './BookingFlow'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function BookPage() {
   let initData
   try {
-    initData = await bookingInit()
+    initData = await bookingInitServer()
   } catch (err) {
     console.error('[book] bookingInit failed:', err)
     return (
