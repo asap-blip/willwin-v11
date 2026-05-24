@@ -31,20 +31,23 @@ export function HoursTab() {
       .from('business_hours')
       .select('id, day_of_week, is_open, open_time, close_time')
       .order('day_of_week')
+
     setRows((data ?? []) as BusinessHours[])
     setLoading(false)
   }
 
   async function loadTechAvailability() {
-    const { data: members } = await supabase
+    const { data: members, error: membersErr } = await supabase
       .from('team_members')
       .select('id, name, color, avatar_url, is_active, working_days')
       .eq('is_active', true)
       .order('name')
 
-    const { data: avail } = await supabase
+    const { data: avail, error: availErr } = await supabase
       .from('tech_availability')
       .select('id, team_member_id, day_of_week')
+      .order('team_member_id')
+      .order('day_of_week')
 
     const map: Record<string, Set<number>> = {}
     for (const tm of members ?? []) {
@@ -54,6 +57,16 @@ export function HoursTab() {
       if (!map[a.team_member_id]) map[a.team_member_id] = new Set<number>()
       map[a.team_member_id].add(a.day_of_week)
     }
+
+    console.log('loadTechAvailability', {
+      members,
+      membersErr,
+      avail,
+      availErr,
+      map: Object.fromEntries(
+        Object.entries(map).map(([techId, days]) => [techId, Array.from(days).sort((a, b) => a - b)]),
+      ),
+    })
 
     setTechs((members ?? []) as TeamMember[])
     setAvailability(map)
@@ -84,6 +97,15 @@ export function HoursTab() {
       if (!next[techId]) next[techId] = new Set<number>()
       if (next[techId].has(day)) next[techId].delete(day)
       else next[techId].add(day)
+
+      console.log('toggleAvailability', {
+        techId,
+        day,
+        next: Object.fromEntries(
+          Object.entries(next).map(([id, days]) => [id, Array.from(days).sort((a, b) => a - b)]),
+        ),
+      })
+
       return next
     })
   }
@@ -117,16 +139,29 @@ export function HoursTab() {
 
     setSaving(false)
     setSavedAt(Date.now())
-    loadHours()
+    await loadHours()
   }
 
   async function handleSaveTechAvailability() {
     setTechsSaving(true)
     setTechsError(null)
 
+    const desiredSnapshot = Object.fromEntries(
+      Object.entries(availability).map(([techId, days]) => [techId, Array.from(days).sort((a, b) => a - b)]),
+    )
+
+    console.log('handleSaveTechAvailability:start', {
+      desiredSnapshot,
+      techs: techs.map((t) => ({ id: t.id, name: t.name })),
+    })
+
     const { data: existingRows, error: fetchErr } = await supabase
       .from('tech_availability')
       .select('id, team_member_id, day_of_week')
+      .order('team_member_id')
+      .order('day_of_week')
+
+    console.log('handleSaveTechAvailability:existingRows', { existingRows, fetchErr })
 
     if (fetchErr) {
       setTechsError(fetchErr.message)
@@ -145,12 +180,26 @@ export function HoursTab() {
       const rowsToDelete = existingForTech.filter((row) => !desiredDays.has(row.day_of_week))
       const daysToInsert = Array.from(desiredDays).filter((day) => !existingDays.has(day))
 
+      console.log('handleSaveTechAvailability:perTech', {
+        tech: { id: tech.id, name: tech.name },
+        existingDays: Array.from(existingDays).sort((a, b) => a - b),
+        desiredDays: Array.from(desiredDays).sort((a, b) => a - b),
+        rowsToDelete,
+        daysToInsert,
+      })
+
       if (rowsToDelete.length > 0) {
         const ids = rowsToDelete.map((row) => row.id)
         const { error: delErr } = await supabase
           .from('tech_availability')
           .delete()
           .in('id', ids)
+
+        console.log('handleSaveTechAvailability:deleteResult', {
+          tech: tech.name,
+          ids,
+          delErr,
+        })
 
         if (delErr) {
           setTechsError(`${tech.name}: ${delErr.message}`)
@@ -160,7 +209,7 @@ export function HoursTab() {
       }
 
       if (daysToInsert.length > 0) {
-        const { error: insErr } = await supabase
+        const { data: insertedRows, error: insErr } = await supabase
           .from('tech_availability')
           .insert(
             daysToInsert.map((day) => ({
@@ -168,6 +217,14 @@ export function HoursTab() {
               day_of_week: day,
             })),
           )
+          .select()
+
+        console.log('handleSaveTechAvailability:insertResult', {
+          tech: tech.name,
+          daysToInsert,
+          insertedRows,
+          insErr,
+        })
 
         if (insErr) {
           setTechsError(`${tech.name}: ${insErr.message}`)
@@ -177,9 +234,9 @@ export function HoursTab() {
       }
     }
 
+    await loadTechAvailability()
     setTechsSaving(false)
     setTechsSavedAt(Date.now())
-    loadTechAvailability()
   }
 
   return (
