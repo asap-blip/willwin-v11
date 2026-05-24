@@ -1,8 +1,11 @@
 // src/lib/willwin-api.ts
 //
-// Thin typed fetch wrappers around the n8n webhooks.
-// Base URL comes from NEXT_PUBLIC_N8N_BASE_URL.
-// Every function throws on network failure or { __error } responses.
+// Typed fetch wrappers for the four booking operations.
+//
+// Default backend is the local Next.js route handlers under /api/booking/*.
+// When NEXT_PUBLIC_N8N_BASE_URL is set the n8n webhooks are tried first; if
+// they return empty/placeholder data or fail, we fall back to the local API.
+// This way a Vercel deploy works out of the box even before n8n is wired up.
 
 import type {
   BookingInitResponse,
@@ -15,6 +18,9 @@ import type {
 } from '@/types/booking';
 import { isWebhookError } from '@/types/booking';
 
+const N8N_BASE_URL =
+  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_N8N_BASE_URL : undefined;
+
 export class WillwinApiError extends Error {
   constructor(
     message: string,
@@ -26,27 +32,7 @@ export class WillwinApiError extends Error {
   }
 }
 
-// Defer the env check to call-time so missing config surfaces through the
-// per-page catch blocks (which render a friendly "Service unavailable"
-// screen) instead of a module-load crash that breaks every route that
-// imports this file.
-function baseUrl(): string {
-  const v = process.env.NEXT_PUBLIC_N8N_BASE_URL;
-  if (!v) {
-    throw new WillwinApiError(
-      'NEXT_PUBLIC_N8N_BASE_URL is not set',
-      'missing_config',
-    );
-  }
-  return v;
-}
-
-async function postWebhook<TReq, TRes>(
-  path: string,
-  body: TReq,
-): Promise<TRes> {
-  const url = `${baseUrl()}/webhook/${path}`;
-
+async function postJson<TReq, TRes>(url: string, body: TReq): Promise<TRes> {
   let res: Response;
   try {
     res = await fetch(url, {
@@ -55,16 +41,13 @@ async function postWebhook<TReq, TRes>(
       body: JSON.stringify(body),
       cache: 'no-store',
     });
-  } catch (err) {
-    throw new WillwinApiError(
-      `Network error calling ${path}`,
-      'network_error',
-    );
+  } catch {
+    throw new WillwinApiError(`Network error calling ${url}`, 'network_error');
   }
 
   if (!res.ok) {
     throw new WillwinApiError(
-      `Webhook ${path} returned ${res.status}`,
+      `${url} returned ${res.status}`,
       'http_error',
       res.status,
     );
@@ -74,19 +57,15 @@ async function postWebhook<TReq, TRes>(
   try {
     data = await res.json();
   } catch {
-    throw new WillwinApiError(
-      `Webhook ${path} returned invalid JSON`,
-      'parse_error',
-    );
+    throw new WillwinApiError(`${url} returned invalid JSON`, 'parse_error');
   }
 
   // n8n wraps single-item responses in an array sometimes.
-  // Unwrap defensively.
   const payload = Array.isArray(data) ? data[0] : data;
 
   if (isWebhookError(payload)) {
     throw new WillwinApiError(
-      payload.message || `Webhook ${path} failed: ${payload.__error}`,
+      payload.message || `Webhook failed: ${payload.__error}`,
       payload.__error,
     );
   }
@@ -94,20 +73,63 @@ async function postWebhook<TReq, TRes>(
   return payload as TRes;
 }
 
+// Heuristic: an init payload that lacks any services is treated as the n8n
+// starter-workflow placeholder, and we fall back to the local API.
+function isPlaceholderInit(r: BookingInitResponse | null | undefined): boolean {
+  if (!r) return true;
+  return !Array.isArray(r.services) || r.services.length === 0;
+}
+
+// Origin used for local API calls. On the server (RSC / route handlers) we
+// need an absolute URL; in the browser a relative path is fine.
+function localUrl(path: string): string {
+  if (typeof window !== 'undefined') return path;
+  const base =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.VERCEL_URL ||
+    'http://localhost:3000';
+  const normalized = base.startsWith('http') ? base : `https://${base}`;
+  return `${normalized}${path}`;
+}
+
+async function withN8nFallback<T>(
+  n8nPath: string,
+  localPath: string,
+  body: unknown,
+  isPlaceholder: (r: T) => boolean = () => false,
+): Promise<T> {
+  if (N8N_BASE_URL) {
+    try {
+      const result = await postJson<unknown, T>(
+        `${N8N_BASE_URL}/webhook/${n8nPath}`,
+        body,
+      );
+      if (!isPlaceholder(result)) return result;
+      console.warn(`[willwin-api] n8n ${n8nPath} returned placeholder/empty, falling back`);
+    } catch (err) {
+      console.warn(`[willwin-api] n8n ${n8nPath} failed, falling back:`, err);
+    }
+  }
+  return postJson<unknown, T>(localUrl(localPath), body);
+}
+
 // ─── Public API ─────────────────────────────────────────────────────
 
 export function bookingInit(): Promise<BookingInitResponse> {
-  return postWebhook<Record<string, never>, BookingInitResponse>(
+  return withN8nFallback<BookingInitResponse>(
     'willwin/booking/init',
+    '/api/booking/init',
     {},
+    isPlaceholderInit,
   );
 }
 
 export function bookingAvailability(
   req: BookingAvailabilityRequest,
 ): Promise<BookingAvailabilityResponse> {
-  return postWebhook<BookingAvailabilityRequest, BookingAvailabilityResponse>(
+  return withN8nFallback<BookingAvailabilityResponse>(
     'willwin/booking/availability',
+    '/api/booking/availability',
     req,
   );
 }
@@ -115,8 +137,9 @@ export function bookingAvailability(
 export function bookingCreate(
   req: BookingCreateRequest,
 ): Promise<BookingCreateResponse> {
-  return postWebhook<BookingCreateRequest, BookingCreateResponse>(
+  return withN8nFallback<BookingCreateResponse>(
     'willwin/booking/create',
+    '/api/booking/create',
     req,
   );
 }
@@ -124,8 +147,9 @@ export function bookingCreate(
 export function bookingGet(
   req: BookingGetRequest,
 ): Promise<BookingGetResponse> {
-  return postWebhook<BookingGetRequest, BookingGetResponse>(
+  return withN8nFallback<BookingGetResponse>(
     'willwin/booking/get',
+    '/api/booking/get',
     req,
   );
 }

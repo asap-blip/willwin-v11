@@ -48,6 +48,7 @@ const COPY = {
     submitError: 'Une erreur est survenue. Veuillez réessayer.',
     noAvail: 'Aucune technicienne disponible à ce créneau.',
     loadingSlots: 'Chargement…',
+    noServices: 'Aucun service disponible pour le moment. Veuillez réessayer plus tard ou nous appeler directement.',
   },
   en: {
     title: 'Book your appointment',
@@ -78,6 +79,7 @@ const COPY = {
     submitError: 'Something went wrong. Please try again.',
     noAvail: 'No tech available at this time.',
     loadingSlots: 'Loading…',
+    noServices: 'No services available right now. Please try again later or call us directly.',
   },
 } as const
 
@@ -317,7 +319,9 @@ export function BookingFlow({
           {step === 1 && (
             <div className="grid grid-cols-1 gap-3">
               {services.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">—</p>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 text-center">
+                  {t.noServices}
+                </div>
               ) : (
                 services.map((s) => {
                   const selected = serviceId === s.id
