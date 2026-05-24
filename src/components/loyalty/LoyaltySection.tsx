@@ -6,6 +6,28 @@ import type { LoyaltyEvent } from '@/lib/types'
 import { TIERS, getNextTier, pointsToNextTier } from '@/lib/loyalty'
 import { TierBadge } from './TierBadge'
 
+// Display labels for loyalty event types. Historical `LATE_CANCEL_PENALTY`
+// rows predate the split into late-arrival vs late-cancellation; they're
+// shown with their original label so the audit trail stays readable.
+const EVENT_LABELS: Record<string, string> = {
+  VISIT_SPEND: 'Visit spend',
+  REFERRAL: 'Referral',
+  REVIEW_GOOGLE: 'Google review',
+  REVIEW_FACEBOOK: 'Facebook review',
+  REVIEW_INSTAGRAM: 'Instagram review',
+  INSTAGRAM_TAG: 'Instagram tag',
+  BIRTHDAY_BONUS: 'Birthday bonus',
+  NO_SHOW_PENALTY: 'No-show penalty',
+  NO_SHOW_REVERSAL: 'No-show reversal',
+  LATE_ARRIVAL_PENALTY: 'Late arrival penalty',
+  LATE_CANCEL_PENALTY: 'Late cancellation penalty',
+  LATE_REVERSAL: 'Late reversal',
+}
+
+function labelForEvent(eventType: string): string {
+  return EVENT_LABELS[eventType] ?? eventType
+}
+
 interface LoyaltySectionProps {
   customerId: string
   loyaltyPoints: number | null
@@ -93,7 +115,7 @@ export function LoyaltySection({ customerId, loyaltyPoints, loyaltyTier }: Loyal
                     {/* Slice the YYYY-MM-DD off created_at — never new Date() */}
                     <td className="px-3 py-2 text-muted-foreground">{(ev.created_at ?? '').slice(0, 10)}</td>
                     <td className="px-3 py-2">
-                      <span className="font-medium">{ev.event_type}</span>
+                      <span className="font-medium">{labelForEvent(ev.event_type)}</span>
                       {ev.note && (
                         <span className="ml-2 text-xs text-muted-foreground">{ev.note}</span>
                       )}

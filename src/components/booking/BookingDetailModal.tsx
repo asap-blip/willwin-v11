@@ -193,11 +193,26 @@ export function BookingDetailModal({
     // Loyalty side effects — only when the feature flag is on. Each rule
     // checks its own per-event transition gate so saves that don't move
     // status never double-credit.
+    //
+    // Policy (single source of truth, mirrored from the salon spec):
+    //   ARRIVED  → visit spend, no penalty
+    //   LATE     → visit spend AND late-arrival penalty (client was served)
+    //   NO SHOW  → no visit spend, no-show penalty
+    //   penalty → non-penalty transitions reverse the stale penalty so
+    //   mutually-exclusive penalties never co-exist on the same booking.
+    //
+    // The LATE_CANCEL_PENALTY event is reserved for a future explicit
+    // "late cancellation" status; the current lifecycle has no such state,
+    // so it is never fired here.
     if (loyaltyEnabled) {
-      // T-BUG-02 — VISIT_SPEND fires ONLY when status transitions into
-      // ARRIVED. CONFIRMED no longer earns points. Lifecycle is:
-      //   PENDING → CONFIRMED → ARRIVED   (points fire here)
-      if (newStatus === 'ARRIVED' && prevStatus !== 'ARRIVED') {
+      const SERVED_STATUSES = ['ARRIVED', 'LATE']
+      const wasServed = SERVED_STATUSES.includes(newStatus)
+      const wasServedBefore = SERVED_STATUSES.includes(prevStatus)
+
+      // VISIT_SPEND fires when the booking transitions into a served
+      // state (ARRIVED or LATE). The per-booking dedupe in
+      // addLoyaltyEvent keeps this a single event across re-saves.
+      if (wasServed && !wasServedBefore) {
         console.log('[BookingDetailModal] firing VISIT_SPEND', {
           customerId: detail.customer_id,
           points: selectedService.price,
@@ -217,16 +232,17 @@ export function BookingDetailModal({
           .eq('id', detail.customer_id)
       }
 
-      // Bug C — LATE_CANCEL_PENALTY: newStatus === 'LATE' AND prevStatus !== 'LATE'
+      // LATE arrival — the client was served but came late. A small
+      // penalty stacks on top of the visit spend above.
       if (newStatus === 'LATE' && prevStatus !== 'LATE') {
-        console.log('[BookingDetailModal] firing LATE_CANCEL_PENALTY', {
+        console.log('[BookingDetailModal] firing LATE_ARRIVAL_PENALTY', {
           customerId: detail.customer_id,
         })
         await addLoyaltyEvent(
           detail.customer_id,
-          'LATE_CANCEL_PENALTY',
+          'LATE_ARRIVAL_PENALTY',
           -10,
-          'Auto: late',
+          'Auto: late arrival',
           detail.booking_id,
         )
       }

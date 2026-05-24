@@ -14,6 +14,9 @@ export const POINTS_CONFIG = {
   INSTAGRAM_TAG: 20,
   BIRTHDAY_BONUS: 25,
   NO_SHOW_PENALTY: -25,
+  LATE_ARRIVAL_PENALTY: -10,
+  // Reserved for an explicit "late cancellation" status if it lands later.
+  // Not fired today — the booking lifecycle has no distinct late-cancel state.
   LATE_CANCEL_PENALTY: -10,
 }
 
