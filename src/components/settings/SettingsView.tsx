@@ -16,19 +16,19 @@ export function SettingsView() {
         <TabsTrigger value="hours">Hours &amp; Availability</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="general">
+      <TabsContent value="general" keepMounted>
         <GeneralTab />
       </TabsContent>
 
-      <TabsContent value="services">
+      <TabsContent value="services" keepMounted>
         <ServicesTab />
       </TabsContent>
 
-      <TabsContent value="team">
+      <TabsContent value="team" keepMounted>
         <TeamTab />
       </TabsContent>
 
-      <TabsContent value="hours">
+      <TabsContent value="hours" keepMounted>
         <HoursTab />
       </TabsContent>
     </Tabs>
