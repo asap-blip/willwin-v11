@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import type { TeamMember } from '@/lib/types'
@@ -12,6 +12,8 @@ export function TeamTab() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   async function loadMembers() {
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
@@ -41,6 +43,17 @@ export function TeamTab() {
       .from('team_members')
       .update({ is_active: !member.is_active })
       .eq('id', member.id)
+    loadMembers()
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    // Cascade: remove availability rows first, then the member
+    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+    await supabase.from('tech_availability').delete().eq('team_member_id', id)
+    await supabase.from('team_members').delete().eq('id', id)
+    setDeletingId(null)
+    setConfirmDeleteId(null)
     loadMembers()
   }
 
@@ -84,21 +97,54 @@ export function TeamTab() {
                     </div>
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${tm.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                      tm.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
                       {tm.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-right space-x-2">
-                    <Button variant="outline" size="xs" onClick={() => handleEdit(tm)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleToggleActive(tm)}
-                    >
-                      {tm.is_active ? 'Deactivate' : 'Reactivate'}
-                    </Button>
+                  <td className="px-4 py-2.5 text-right">
+                    {confirmDeleteId === tm.id ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="text-xs text-red-600 font-medium">Delete?</span>
+                        <Button
+                          variant="destructive"
+                          size="xs"
+                          disabled={deletingId === tm.id}
+                          onClick={() => handleDelete(tm.id)}
+                        >
+                          {deletingId === tm.id ? '…' : 'Yes'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          No
+                        </Button>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Button variant="outline" size="xs" onClick={() => handleEdit(tm)}>
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => handleToggleActive(tm)}
+                        >
+                          {tm.is_active ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setConfirmDeleteId(tm.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

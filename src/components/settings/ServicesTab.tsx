@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import type { Service } from '@/lib/types'
@@ -12,6 +12,8 @@ export function ServicesTab() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   async function loadServices() {
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
@@ -41,6 +43,15 @@ export function ServicesTab() {
       .from('services')
       .update({ is_active: !service.is_active })
       .eq('id', service.id)
+    loadServices()
+  }
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+    await supabase.from('services').delete().eq('id', id)
+    setDeletingId(null)
+    setConfirmDeleteId(null)
     loadServices()
   }
 
@@ -80,21 +91,54 @@ export function ServicesTab() {
                   <td className="px-4 py-2.5">{svc.duration_minutes} min</td>
                   <td className="px-4 py-2.5">${svc.price}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${svc.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                      svc.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
                       {svc.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-right space-x-2">
-                    <Button variant="outline" size="xs" onClick={() => handleEdit(svc)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleToggleActive(svc)}
-                    >
-                      {svc.is_active ? 'Deactivate' : 'Reactivate'}
-                    </Button>
+                  <td className="px-4 py-2.5 text-right">
+                    {confirmDeleteId === svc.id ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="text-xs text-red-600 font-medium">Delete?</span>
+                        <Button
+                          variant="destructive"
+                          size="xs"
+                          disabled={deletingId === svc.id}
+                          onClick={() => handleDelete(svc.id)}
+                        >
+                          {deletingId === svc.id ? '…' : 'Yes'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          No
+                        </Button>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Button variant="outline" size="xs" onClick={() => handleEdit(svc)}>
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => handleToggleActive(svc)}
+                        >
+                          {svc.is_active ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => setConfirmDeleteId(svc.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
