@@ -9,24 +9,17 @@ import { generateTimeSlots, formatTimeLabel } from '@/lib/calendar-helpers'
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Mon-first display order. Sunday is dropped to the end so the table reads
-// Mon → Sun like the spec asks for.
 const DAY_ORDER: number[] = [1, 2, 3, 4, 5, 6, 0]
-
-// Full set of 30-minute slots (00:00 → 23:30) for the open/close pickers
 const ALL_SLOTS = generateTimeSlots('00:00', '23:30')
 
 export function HoursTab() {
-  // ─── Business Hours state ───────────────────────────────────────────────
   const [rows, setRows] = useState<BusinessHours[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // ─── Tech Availability state ────────────────────────────────────────────
   const [techs, setTechs] = useState<TeamMember[]>([])
-  // Map of team_member_id -> Set<day_of_week>
   const [availability, setAvailability] = useState<Record<string, Set<number>>>({})
   const [techsLoading, setTechsLoading] = useState(true)
   const [techsSaving, setTechsSaving] = useState(false)
@@ -34,7 +27,6 @@ export function HoursTab() {
   const [techsError, setTechsError] = useState<string | null>(null)
 
   async function loadHours() {
-    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
     const { data } = await supabase
       .from('business_hours')
       .select('id, day_of_week, is_open, open_time, close_time')
@@ -44,7 +36,6 @@ export function HoursTab() {
   }
 
   async function loadTechAvailability() {
-    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
     const { data: members } = await supabase
       .from('team_members')
       .select('id, name, color, avatar_url, is_active, working_days')
@@ -63,6 +54,7 @@ export function HoursTab() {
       if (!map[a.team_member_id]) map[a.team_member_id] = new Set<number>()
       map[a.team_member_id].add(a.day_of_week)
     }
+
     setTechs((members ?? []) as TeamMember[])
     setAvailability(map)
     setTechsLoading(false)
@@ -73,7 +65,6 @@ export function HoursTab() {
     loadTechAvailability()
   }, [])
 
-  // Render in Mon-first order
   const orderedRows = useMemo(() => {
     const byDay = new Map<number, BusinessHours>()
     for (const r of rows) byDay.set(r.day_of_week, r)
@@ -100,14 +91,14 @@ export function HoursTab() {
   async function handleSaveHours() {
     setSaving(true)
     setError(null)
-    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+
     for (const row of rows) {
-      // Guard against open_time >= close_time when the day is open
       if (row.is_open && row.open_time >= row.close_time) {
         setError(`${DAY_NAMES[row.day_of_week]}: open time must be before close time.`)
         setSaving(false)
         return
       }
+
       const { error: upErr } = await supabase
         .from('business_hours')
         .update({
@@ -116,12 +107,14 @@ export function HoursTab() {
           close_time: row.close_time,
         })
         .eq('id', row.id)
+
       if (upErr) {
         setError(`${DAY_NAMES[row.day_of_week]}: ${upErr.message}`)
         setSaving(false)
         return
       }
     }
+
     setSaving(false)
     setSavedAt(Date.now())
     loadHours()
@@ -131,29 +124,51 @@ export function HoursTab() {
     setTechsSaving(true)
     setTechsError(null)
 
+    const { data: existingRows, error: fetchErr } = await supabase
+      .from('tech_availability')
+      .select('id, team_member_id, day_of_week')
+
+    if (fetchErr) {
+      setTechsError(fetchErr.message)
+      setTechsSaving(false)
+      return
+    }
+
     for (const tech of techs) {
-      // Delete existing rows for this tech, then reinsert checked days.
-      // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-      const { error: delErr } = await supabase
-        .from('tech_availability')
-        .delete()
-        .eq('team_member_id', tech.id)
-      if (delErr) {
-        setTechsError(`${tech.name}: ${delErr.message}`)
-        setTechsSaving(false)
-        return
+      const existingForTech = ((existingRows ?? []) as TechAvailability[]).filter(
+        (row) => row.team_member_id === tech.id,
+      )
+
+      const existingDays = new Set(existingForTech.map((row) => row.day_of_week))
+      const desiredDays = availability[tech.id] ?? new Set<number>()
+
+      const rowsToDelete = existingForTech.filter((row) => !desiredDays.has(row.day_of_week))
+      const daysToInsert = Array.from(desiredDays).filter((day) => !existingDays.has(day))
+
+      if (rowsToDelete.length > 0) {
+        const ids = rowsToDelete.map((row) => row.id)
+        const { error: delErr } = await supabase
+          .from('tech_availability')
+          .delete()
+          .in('id', ids)
+
+        if (delErr) {
+          setTechsError(`${tech.name}: ${delErr.message}`)
+          setTechsSaving(false)
+          return
+        }
       }
 
-      const days = Array.from(availability[tech.id] ?? [])
-      if (days.length > 0) {
+      if (daysToInsert.length > 0) {
         const { error: insErr } = await supabase
           .from('tech_availability')
           .insert(
-            days.map((d) => ({
+            daysToInsert.map((day) => ({
               team_member_id: tech.id,
-              day_of_week: d,
+              day_of_week: day,
             })),
           )
+
         if (insErr) {
           setTechsError(`${tech.name}: ${insErr.message}`)
           setTechsSaving(false)
@@ -161,6 +176,7 @@ export function HoursTab() {
         }
       }
     }
+
     setTechsSaving(false)
     setTechsSavedAt(Date.now())
     loadTechAvailability()
@@ -168,7 +184,6 @@ export function HoursTab() {
 
   return (
     <div className="mt-4 space-y-8">
-      {/* ─── Business Hours ─────────────────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -268,7 +283,6 @@ export function HoursTab() {
         )}
       </section>
 
-      {/* ─── Tech Availability ──────────────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
