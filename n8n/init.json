@@ -1,0 +1,51 @@
+{
+  "name": "willwin / booking / init",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "willwin/booking/init",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-init",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "willwin-booking-init"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Replace with four Supabase nodes that read active services, active\n// team_members, business_hours, and tech_availability — then merge into\n// the shape below. This stub returns an empty payload so the workflow\n// is importable; the booking page will render “no services”.\nreturn [{\n  json: {\n    services: [],\n    team_members: [],\n    business_hours: [],\n    tech_availability: []\n  }\n}];"
+      },
+      "id": "compose-init",
+      "name": "Compose response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-init",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Compose response", "type": "main", "index": 0 }]]
+    },
+    "Compose response": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": [{ "name": "willwin" }]
+}

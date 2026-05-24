@@ -15,13 +15,6 @@ import type {
 } from '@/types/booking';
 import { isWebhookError } from '@/types/booking';
 
-const BASE_URL = process.env.NEXT_PUBLIC_N8N_BASE_URL;
-
-if (!BASE_URL) {
-  // Fail loud at module load — better than silent NaN URLs in production
-  throw new Error('NEXT_PUBLIC_N8N_BASE_URL is not set');
-}
-
 export class WillwinApiError extends Error {
   constructor(
     message: string,
@@ -33,11 +26,26 @@ export class WillwinApiError extends Error {
   }
 }
 
+// Defer the env check to call-time so missing config surfaces through the
+// per-page catch blocks (which render a friendly "Service unavailable"
+// screen) instead of a module-load crash that breaks every route that
+// imports this file.
+function baseUrl(): string {
+  const v = process.env.NEXT_PUBLIC_N8N_BASE_URL;
+  if (!v) {
+    throw new WillwinApiError(
+      'NEXT_PUBLIC_N8N_BASE_URL is not set',
+      'missing_config',
+    );
+  }
+  return v;
+}
+
 async function postWebhook<TReq, TRes>(
   path: string,
   body: TReq,
 ): Promise<TRes> {
-  const url = `${BASE_URL}/webhook/${path}`;
+  const url = `${baseUrl()}/webhook/${path}`;
 
   let res: Response;
   try {

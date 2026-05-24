@@ -1,0 +1,51 @@
+{
+  "name": "willwin / booking / create",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "willwin/booking/create",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-create",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "willwin-booking-create"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pseudocode for the create flow. Wire the Supabase upsert / insert\n// calls before activating. start_at MUST be in 'YYYY-MM-DD HH:mm:00'\n// form (space separator). See CLAUDE.md.\nconst i = $json;\nconst startAt = `${i.date} ${i.time}:00`;\n\n// 1. Find-or-create customer by phone\n// 2. If team_member_id is null: pick a tech who has tech_availability\n//    for getDayOfWeek(date) AND no conflicting segment. If none, return\n//    { __error: 'no_tech_available' }.\n// 3. Re-check conflict for the resolved tech and time.\n// 4. Insert into bookings (status='PENDING', source='client', start_at, customer_id, notes=note).\n// 5. Insert into appointment_segments (booking_id, team_member_id, service_id, duration_minutes).\n// 6. Optional: queue confirmation SMS.\n\nreturn [{ json: { booking_id: '00000000-0000-0000-0000-000000000000', status: 'PENDING', resolved_tech_id: '00000000-0000-0000-0000-000000000000' } }];"
+      },
+      "id": "create-booking",
+      "name": "Create booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-create",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Create booking", "type": "main", "index": 0 }]]
+    },
+    "Create booking": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": [{ "name": "willwin" }]
+}
