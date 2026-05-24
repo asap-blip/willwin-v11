@@ -1,0 +1,51 @@
+{
+  "name": "willwin / booking / get",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "willwin/booking/get",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-get",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "willwin-booking-get"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Replace this with a Supabase SELECT that joins:\n//   bookings -> appointment_segments -> services\n//   bookings -> customers\n//   appointment_segments -> team_members\n// for the given booking_id. Slice start_at — never new Date().\nconst { id } = $json;\nreturn [{\n  json: {\n    booking_id: id,\n    first_name: '',\n    service_name: '',\n    tech_name: '',\n    date: '',\n    time: ''\n  }\n}];"
+      },
+      "id": "load-booking",
+      "name": "Load booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-get",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Load booking", "type": "main", "index": 0 }]]
+    },
+    "Load booking": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": [{ "name": "willwin" }]
+}

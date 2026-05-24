@@ -15,6 +15,14 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Public booking API endpoints called by the booking flow (both from the
+  // server-side RSC fetch and the browser client). Must be reachable without
+  // an admin session, otherwise the RSC fetch receives the /login HTML and
+  // surfaces as "invalid JSON".
+  if (pathname.startsWith('/api/booking/')) {
+    return NextResponse.next()
+  }
+
   // Check for session cookie
   const session = request.cookies.get('willwin_session')
 

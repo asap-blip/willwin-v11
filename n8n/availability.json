@@ -1,0 +1,51 @@
+{
+  "name": "willwin / booking / availability",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "willwin/booking/availability",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-availability",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "willwin-booking-availability"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Inputs: date (YYYY-MM-DD), team_member_id (uuid|null), service_id, duration_minutes.\n// Replace the empty bookings/businessHours/techAvail arrays below with real\n// Supabase nodes wired into this Code node.\nconst { date, team_member_id, duration_minutes } = $json;\n\nconst businessHours = []; // ← read business_hours where day_of_week = JS getDay(date)\nconst row = businessHours[0];\nconst isOpen = Boolean(row && row.is_open);\nif (!isOpen) {\n  return [{ json: { is_open: false, open_time: null, close_time: null, tech_works_today: false, available_slots: [] } }];\n}\n\nconst openTime = row.open_time;\nconst closeTime = row.close_time;\n\n// All techs working that day\nconst techAvail = [];   // ← read tech_availability where day_of_week = JS getDay(date)\nconst techsToday = techAvail.map(t => t.team_member_id);\nconst techWorksToday = team_member_id\n  ? techsToday.includes(team_member_id)\n  : techsToday.length > 0;\n\nif (!techWorksToday) {\n  return [{ json: { is_open: true, open_time: openTime, close_time: closeTime, tech_works_today: false, available_slots: [] } }];\n}\n\n// Existing segments on that date for the relevant techs (NOT cancelled)\nconst segments = []; // ← join appointment_segments + bookings where date matches and status != 'CANCELLED'\n\nfunction toMin(hhmm) { return parseInt(hhmm.slice(0,2),10)*60 + parseInt(hhmm.slice(3,5),10); }\nfunction toHHMM(m) {\n  const h = String(Math.floor(m/60)).padStart(2,'0');\n  const mm = String(m%60).padStart(2,'0');\n  return `${h}:${mm}`;\n}\n\nconst openMin = toMin(openTime);\nconst closeMin = toMin(closeTime);\nconst dur = Number(duration_minutes);\n\nconst conflictsByTech = new Map();\nfor (const s of segments) {\n  const startMin = toMin(s.start_at.slice(11,16));\n  const endMin = startMin + Number(s.duration_minutes);\n  if (!conflictsByTech.has(s.team_member_id)) conflictsByTech.set(s.team_member_id, []);\n  conflictsByTech.get(s.team_member_id).push([startMin, endMin]);\n}\n\nfunction techFree(tid, startMin, endMin) {\n  const list = conflictsByTech.get(tid) || [];\n  return list.every(([a, b]) => endMin <= a || startMin >= b);\n}\n\nconst slots = [];\nfor (let m = openMin; m + dur <= closeMin; m += 30) {\n  const candidates = team_member_id ? [team_member_id] : techsToday;\n  if (candidates.some(tid => techFree(tid, m, m + dur))) {\n    slots.push(toHHMM(m));\n  }\n}\n\nreturn [{ json: { is_open: true, open_time: openTime, close_time: closeTime, tech_works_today: true, available_slots: slots } }];"
+      },
+      "id": "compute-slots",
+      "name": "Compute slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-availability",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Compute slots", "type": "main", "index": 0 }]]
+    },
+    "Compute slots": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "tags": [{ "name": "willwin" }]
+}
