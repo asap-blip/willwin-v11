@@ -38,9 +38,9 @@ async function seed() {
   const { data: services, error: svcError } = await supabase
     .from('services')
     .insert([
-      { name: 'Classic Manicure', duration_minutes: 30, price: 35, is_active: true },
-      { name: 'Gel Full Set', duration_minutes: 60, price: 65, is_active: true },
-      { name: 'Pedicure Deluxe', duration_minutes: 90, price: 85, is_active: true },
+      { name: 'Classic Manicure', duration_minutes: 30, price: 35, is_active: true, category: 'nails' },
+      { name: 'Gel Full Set', duration_minutes: 60, price: 65, is_active: true, category: 'nails' },
+      { name: 'Pedicure Deluxe', duration_minutes: 90, price: 85, is_active: true, category: 'nails' },
     ])
     .select()
 

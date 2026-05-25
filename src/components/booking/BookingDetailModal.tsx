@@ -13,6 +13,7 @@ import {
   getDayOfWeek,
   isTechAvailable,
 } from '@/lib/calendar-helpers'
+import { groupServicesByCategory } from '@/lib/service-categories'
 import { fetchBookingDetail, fetchCustomerVisitStats } from '@/lib/fetch-booking-detail'
 import { addLoyaltyEvent } from '@/lib/loyalty-events'
 import { TierBadge } from '@/components/loyalty/TierBadge'
@@ -79,7 +80,7 @@ export function BookingDetailModal({
         // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
         supabase
           .from('services')
-          .select('id, name, duration_minutes, price, is_active')
+          .select('id, name, duration_minutes, price, is_active, category')
           .eq('is_active', true)
           .order('name'),
       ])
@@ -475,10 +476,14 @@ export function BookingDetailModal({
                       onChange={(e) => setServiceId(e.target.value)}
                       className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      {services.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} — {s.duration_minutes} min — ${s.price}
-                        </option>
+                      {groupServicesByCategory(services).map((group) => (
+                        <optgroup key={group.key} label={group.label}>
+                          {group.services.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} — {s.duration_minutes} min — ${s.price}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </fieldset>

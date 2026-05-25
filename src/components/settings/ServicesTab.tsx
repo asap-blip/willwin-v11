@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 import type { Service } from '@/lib/types'
+import { groupServicesByCategory } from '@/lib/service-categories'
 import { ServiceModal } from './ServiceModal'
 
 export function ServicesTab() {
@@ -21,7 +22,7 @@ export function ServicesTab() {
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
     const { data } = await supabase
       .from('services')
-      .select('id, name, duration_minutes, price, is_active')
+      .select('id, name, duration_minutes, price, is_active, category')
       .order('name')
     setServices(data ?? [])
     setLoading(false)
@@ -122,7 +123,17 @@ export function ServicesTab() {
               </tr>
             </thead>
             <tbody>
-              {services.map((svc) => (
+              {groupServicesByCategory(services).map((group) => (
+                <Fragment key={group.key}>
+                  <tr className="bg-muted/40">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      {group.label}
+                    </td>
+                  </tr>
+                  {group.services.map((svc) => (
                 <tr
                   key={svc.id}
                   className={`border-b border-border/50 ${!svc.is_active ? 'opacity-50' : ''}`}
@@ -181,6 +192,8 @@ export function ServicesTab() {
                     )}
                   </td>
                 </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -14,6 +14,7 @@ import type {
   TechAvailability,
 } from '@/types/booking'
 import { formatTimeLabel, getDayOfWeek, isTechAvailable } from '@/lib/calendar-helpers'
+import { groupServicesByCategory } from '@/lib/service-categories'
 
 // "No preference" sentinel — never collides with a real UUID.
 const NO_PREF = '__no_pref__'
@@ -317,41 +318,53 @@ export function BookingFlow({
 
           {/* ─── Step 1: Service ──────────────────────────────────────── */}
           {step === 1 && (
-            <div className="grid grid-cols-1 gap-3">
-              {services.length === 0 ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 text-center">
-                  {t.noServices}
-                </div>
-              ) : (
-                services.map((s) => {
-                  const selected = serviceId === s.id
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setServiceId(s.id)}
-                      className={`text-left rounded-xl border p-4 transition ${
-                        selected
-                          ? 'border-primary bg-secondary'
-                          : 'border-border bg-white hover:bg-muted/40'
-                      }`}
+            services.length === 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 text-center">
+                {t.noServices}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {groupServicesByCategory(services).map((group) => (
+                  <div key={group.key}>
+                    <h3
+                      className="text-sm font-semibold uppercase tracking-wide mb-3"
+                      style={{ color: 'var(--rs-text-primary)' }}
                     >
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-semibold text-base" style={{ color: 'var(--rs-text-primary)' }}>
-                          {s.name}
-                        </span>
-                        <span className="text-sm font-medium" style={{ color: 'var(--rs-text-primary)' }}>
-                          ${s.price}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {s.duration_minutes} {t.minutes}
-                      </p>
-                    </button>
-                  )
-                })
-              )}
-            </div>
+                      {group.label}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {group.services.map((s) => {
+                        const selected = serviceId === s.id
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => setServiceId(s.id)}
+                            className={`text-left rounded-xl border p-4 transition ${
+                              selected
+                                ? 'border-primary bg-secondary'
+                                : 'border-border bg-white hover:bg-muted/40'
+                            }`}
+                          >
+                            <div className="flex items-baseline justify-between gap-3">
+                              <span className="font-semibold text-base" style={{ color: 'var(--rs-text-primary)' }}>
+                                {s.name}
+                              </span>
+                              <span className="text-sm font-medium" style={{ color: 'var(--rs-text-primary)' }}>
+                                ${s.price}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {s.duration_minutes} {t.minutes}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
           {/* ─── Step 2: Tech ─────────────────────────────────────────── */}

@@ -15,6 +15,7 @@ import {
   getDayOfWeek,
   isTechAvailable,
 } from '@/lib/calendar-helpers'
+import { groupServicesByCategory } from '@/lib/service-categories'
 import { ClientSearch } from './ClientSearch'
 
 interface SelectedClient {
@@ -112,7 +113,7 @@ export function NewBookingModal({
       // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
       const { data } = await supabase
         .from('services')
-        .select('id, name, duration_minutes, price, is_active')
+        .select('id, name, duration_minutes, price, is_active, category')
         .eq('is_active', true)
         .order('name')
       setServices(data ?? [])
@@ -441,10 +442,14 @@ export function NewBookingModal({
                 className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Select a service...</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — {s.duration_minutes} min — ${s.price}
-                  </option>
+                {groupServicesByCategory(services).map((group) => (
+                  <optgroup key={group.key} label={group.label}>
+                    {group.services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {s.duration_minutes} min — ${s.price}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             )}

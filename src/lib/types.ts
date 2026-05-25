@@ -13,6 +13,7 @@ export interface Service {
   price: number
   duration_minutes: number
   is_active: boolean
+  category?: string | null // 'nails' | 'lashes' — see src/lib/service-categories.ts
 }
 
 export interface TeamMember {

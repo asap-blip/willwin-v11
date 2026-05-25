@@ -17,6 +17,7 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
   const [name, setName] = useState('')
   const [durationMinutes, setDurationMinutes] = useState(30)
   const [price, setPrice] = useState(0)
+  const [category, setCategory] = useState<'nails' | 'lashes'>('nails')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,6 +28,7 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
       setName(service?.name ?? '')
       setDurationMinutes(service?.duration_minutes ?? 30)
       setPrice(service?.price ?? 0)
+      setCategory(service?.category === 'lashes' ? 'lashes' : 'nails')
       setSaving(false)
       setError(null)
     }
@@ -42,11 +44,11 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
       isEdit && service
         ? await supabase
             .from('services')
-            .update({ name: name.trim(), duration_minutes: durationMinutes, price })
+            .update({ name: name.trim(), duration_minutes: durationMinutes, price, category })
             .eq('id', service.id)
         : await supabase
             .from('services')
-            .insert({ name: name.trim(), duration_minutes: durationMinutes, price, is_active: true })
+            .insert({ name: name.trim(), duration_minutes: durationMinutes, price, category, is_active: true })
 
     setSaving(false)
     if (saveErr) {
@@ -81,6 +83,18 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
+          </fieldset>
+
+          <fieldset>
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value === 'lashes' ? 'lashes' : 'nails')}
+              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="nails">Nails</option>
+              <option value="lashes">Lashes</option>
+            </select>
           </fieldset>
 
           <fieldset>
