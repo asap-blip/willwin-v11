@@ -80,7 +80,7 @@ export function BookingDetailModal({
         // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
         supabase
           .from('services')
-          .select('id, name, duration_minutes, price, is_active, category')
+          .select('id, name, duration_minutes, price, is_active')
           .eq('is_active', true)
           .order('name'),
       ])

@@ -9,7 +9,7 @@ export async function bookingInitServer(): Promise<BookingInitResponse> {
   const [servicesRes, teamRes, hoursRes, availRes] = await Promise.all([
     supabase
       .from('services')
-      .select('id, name, name_en, price, duration_minutes, is_active, category')
+      .select('id, name, name_en, price, duration_minutes, is_active')
       .eq('is_active', true)
       .order('name', { ascending: true }),
     supabase
