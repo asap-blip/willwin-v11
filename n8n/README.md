@@ -176,6 +176,51 @@ with HTTP 200. The client maps known codes:
 
 Non-200 responses bubble up as generic HTTP errors.
 
+## Empty-result pitfall (Supabase read nodes)
+
+By default an n8n Supabase/Postgres node that returns **zero rows** emits no
+output item, which halts the branch — the downstream Code node never runs and
+the webhook responds with an empty/`null` body. The client then throws
+`WillwinApiError` (`parse_error`).
+
+This is the root cause of the **"Get Booked Segments" empty-result bug**: on a
+day with no bookings the segment query returns nothing, so availability came
+back empty instead of "every slot open". The fix on that node is:
+
+- **Always Output Data = ON** — emit an empty item instead of nothing.
+- **On Error = Continue (using error output)** — never abort the branch.
+
+Apply the same two settings to **every read node that can legitimately return
+zero rows**, then have the following Code/merge node coalesce to `[]`:
+
+| Workflow       | Read nodes that can return zero rows                              | Same bug? |
+| -------------- | ----------------------------------------------------------------- | --------- |
+| `availability` | Get Booked Segments (day has no bookings)                         | Fixed     |
+| `create`       | conflict-check segment read (first booking of the day) **and** find-customer-by-phone (new customer) | **Yes — apply the same fix** |
+| `get`          | loads one booking by id — single-row lookup, not a zero-row set   | Not affected by this node; no "Get Booked Segments" node exists here |
+
+**Verify after applying** (replace `$BASE` with `NEXT_PUBLIC_N8N_BASE_URL`):
+
+```bash
+# availability on a day with NO bookings → expect available_slots populated
+curl -sS -X POST "$BASE/webhook/willwin/booking/availability" \
+  -H 'Content-Type: application/json' \
+  -d '{"date":"2026-12-25","team_member_id":null,"service_id":"<svc-uuid>","duration_minutes":60}'
+
+# create for a brand-new phone on an empty day → expect booking_id + status PENDING
+curl -sS -X POST "$BASE/webhook/willwin/booking/create" \
+  -H 'Content-Type: application/json' \
+  -d '{"service_id":"<svc-uuid>","team_member_id":null,"date":"2026-12-25","time":"10:30","duration_minutes":60,"first_name":"Test","last_name":"Verify","phone":"514-555-0199","email":null,"note":null,"language":"en"}'
+```
+
+A non-empty JSON body (not `null`/`[]`) on both confirms the fix. Delete any
+test booking afterward.
+
+> **Status note:** the create workflow must insert `status = 'PENDING'` to match
+> the app contract, the local `/api/booking/create` fallback, and `CLAUDE.md`.
+> If a `create` smoke test ever shows `CONFIRMED`, the live workflow has drifted
+> from the documented contract — fix the workflow, do not change the docs.
+
 ## Importable templates
 
 The four files in this directory are starter workflows you can import

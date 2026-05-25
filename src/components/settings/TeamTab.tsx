@@ -14,6 +14,8 @@ export function TeamTab() {
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   async function loadMembers() {
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
@@ -38,23 +40,67 @@ export function TeamTab() {
   }
 
   async function handleToggleActive(member: TeamMember) {
+    setError(null)
+    setNotice(null)
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-    await supabase
+    const { error: upErr } = await supabase
       .from('team_members')
       .update({ is_active: !member.is_active })
       .eq('id', member.id)
-    loadMembers()
+    if (upErr) {
+      setError(`Couldn't update "${member.name}": ${upErr.message}`)
+      return
+    }
+    await loadMembers()
   }
 
   async function handleDelete(id: string) {
     setDeletingId(id)
-    // Cascade: remove availability rows first, then the member
+    setError(null)
+    setNotice(null)
+    const member = members.find((m) => m.id === id)
+
+    // Cascade: remove availability rows first, then the member.
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-    await supabase.from('tech_availability').delete().eq('team_member_id', id)
-    await supabase.from('team_members').delete().eq('id', id)
+    const { error: availErr } = await supabase
+      .from('tech_availability')
+      .delete()
+      .eq('team_member_id', id)
+    if (availErr) {
+      setError(`Couldn't remove availability for this tech: ${availErr.message}`)
+      setDeletingId(null)
+      setConfirmDeleteId(null)
+      await loadMembers()
+      return
+    }
+
+    const { error: delErr } = await supabase.from('team_members').delete().eq('id', id)
+
+    if (delErr) {
+      // 23503 = FK violation: the tech is referenced by existing
+      // appointment_segments (ON DELETE RESTRICT). Booking history must be
+      // preserved, so soft-delete instead — deactivating drops the tech from
+      // the public booking flow (which only loads is_active techs).
+      if (delErr.code === '23503') {
+        const { error: deactErr } = await supabase
+          .from('team_members')
+          .update({ is_active: false })
+          .eq('id', id)
+        if (deactErr) {
+          setError(`Couldn't delete or deactivate this tech: ${deactErr.message}`)
+        } else {
+          setNotice(
+            `${member?.name ?? 'This tech'} has existing bookings, so they were deactivated (hidden from new bookings) instead of deleted.`,
+          )
+        }
+      } else {
+        setError(`Couldn't delete this tech: ${delErr.message}`)
+      }
+    }
+
     setDeletingId(null)
     setConfirmDeleteId(null)
-    loadMembers()
+    await loadMembers()
   }
 
   return (
@@ -66,6 +112,13 @@ export function TeamTab() {
           Add Tech
         </Button>
       </div>
+
+      {error && (
+        <p className="mb-3 text-sm text-red-600">{error}</p>
+      )}
+      {notice && (
+        <p className="mb-3 text-sm text-amber-600">{notice}</p>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading...</p>
@@ -91,7 +144,7 @@ export function TeamTab() {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: tm.color }}
+                        style={{ backgroundColor: tm.color ?? undefined }}
                       />
                       {tm.name}
                     </div>

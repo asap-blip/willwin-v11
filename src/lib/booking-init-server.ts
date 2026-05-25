@@ -1,6 +1,7 @@
 import 'server-only'
 import { getServerSupabase } from '@/lib/supabase-server'
 import type { BookingInitResponse } from '@/types/booking'
+import { sortServicesByCategory } from '@/lib/service-categories'
 
 export async function bookingInitServer(): Promise<BookingInitResponse> {
   const supabase = getServerSupabase()
@@ -26,7 +27,8 @@ export async function bookingInitServer(): Promise<BookingInitResponse> {
   if (availRes.error) throw availRes.error
 
   return {
-    services: servicesRes.data ?? [],
+    // Grouped NAILS-then-LASHES, name A–Z within each category.
+    services: sortServicesByCategory(servicesRes.data ?? []),
     team_members: teamRes.data ?? [],
     business_hours: hoursRes.data ?? [],
     tech_availability: availRes.data ?? [],

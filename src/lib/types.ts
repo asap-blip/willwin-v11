@@ -1,16 +1,43 @@
 // src/lib/types.ts
 //
-// Domain types for admin/internal pages.
-// Booking-flow wire types live in @/types/booking.
-// The four duplicates (TeamMember, BusinessHours, TechAvailability, Service)
-// are re-exported from @/types/booking so existing admin imports keep working.
+// Domain types for admin/internal pages. These mirror the actual Supabase
+// row shapes (sql/000_initial_schema.sql) the admin reads and writes — they
+// carry the primary-key `id` and persisted columns (color, avatar_url,
+// working_days) that the narrower public booking-flow wire types in
+// @/types/booking intentionally omit.
 
-export type {
-  TeamMember,
-  BusinessHours,
-  TechAvailability,
-  Service,
-} from '@/types/booking'
+export interface Service {
+  id: string
+  name: string
+  name_en?: string | null
+  price: number
+  duration_minutes: number
+  is_active: boolean
+  category?: string | null // 'nails' | 'lashes' — see src/lib/service-categories.ts
+}
+
+export interface TeamMember {
+  id: string
+  name: string
+  color: string | null
+  avatar_url: string | null
+  is_active: boolean
+  working_days: string | null
+}
+
+export interface BusinessHours {
+  id: string
+  day_of_week: number // 0 = Sun, 6 = Sat
+  is_open: boolean
+  open_time: string | null  // "09:00"
+  close_time: string | null // "20:00"
+}
+
+export interface TechAvailability {
+  id: string
+  team_member_id: string
+  day_of_week: number
+}
 
 export interface Customer {
   id: string

@@ -374,7 +374,7 @@ export function TimeGrid({
               >
                 <span
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: tm.color }}
+                  style={{ backgroundColor: tm.color ?? undefined }}
                 />
                 <span className="text-sm font-medium truncate" style={{ color: 'var(--rs-text-primary)' }}>{tm.name}</span>
                 {!available && (

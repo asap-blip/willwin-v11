@@ -15,6 +15,7 @@ import {
   getDayOfWeek,
   isTechAvailable,
 } from '@/lib/calendar-helpers'
+import { groupServicesByCategory } from '@/lib/service-categories'
 import { ClientSearch } from './ClientSearch'
 
 interface SelectedClient {
@@ -153,7 +154,7 @@ export function NewBookingModal({
     setBestLoading(true)
     setBestError(null)
     try {
-      const res = await fetch('/api/bookings/best-available', {
+      const res = await fetch('/api/booking/best-available', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -441,10 +442,14 @@ export function NewBookingModal({
                 className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Select a service...</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — {s.duration_minutes} min — ${s.price}
-                  </option>
+                {groupServicesByCategory(services).map((group) => (
+                  <optgroup key={group.key} label={group.label}>
+                    {group.services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {s.duration_minutes} min — ${s.price}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             )}
