@@ -153,7 +153,7 @@ export function NewBookingModal({
     setBestLoading(true)
     setBestError(null)
     try {
-      const res = await fetch('/api/bookings/best-available', {
+      const res = await fetch('/api/booking/best-available', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
