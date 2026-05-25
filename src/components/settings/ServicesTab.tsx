@@ -14,6 +14,8 @@ export function ServicesTab() {
   const [editingService, setEditingService] = useState<Service | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   async function loadServices() {
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
@@ -38,21 +40,52 @@ export function ServicesTab() {
   }
 
   async function handleToggleActive(service: Service) {
+    setError(null)
+    setNotice(null)
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-    await supabase
+    const { error: upErr } = await supabase
       .from('services')
       .update({ is_active: !service.is_active })
       .eq('id', service.id)
-    loadServices()
+    if (upErr) {
+      setError(`Couldn't update "${service.name}": ${upErr.message}`)
+      return
+    }
+    await loadServices()
   }
 
   async function handleDelete(id: string) {
     setDeletingId(id)
+    setError(null)
+    setNotice(null)
     // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-    await supabase.from('services').delete().eq('id', id)
+    const { error: delErr } = await supabase.from('services').delete().eq('id', id)
+
+    if (delErr) {
+      // 23503 = FK violation: the service is referenced by existing
+      // appointment_segments (ON DELETE RESTRICT). Booking history must be
+      // preserved, so soft-delete instead — deactivating drops it from the
+      // public booking flow (which only loads is_active services).
+      if (delErr.code === '23503') {
+        const { error: deactErr } = await supabase
+          .from('services')
+          .update({ is_active: false })
+          .eq('id', id)
+        if (deactErr) {
+          setError(`Couldn't delete or deactivate this service: ${deactErr.message}`)
+        } else {
+          setNotice(
+            'This service has existing bookings, so it was deactivated (hidden from new bookings) instead of deleted.',
+          )
+        }
+      } else {
+        setError(`Couldn't delete this service: ${delErr.message}`)
+      }
+    }
+
     setDeletingId(null)
     setConfirmDeleteId(null)
-    loadServices()
+    await loadServices()
   }
 
   return (
@@ -64,6 +97,13 @@ export function ServicesTab() {
           Add Service
         </Button>
       </div>
+
+      {error && (
+        <p className="mb-3 text-sm text-red-600">{error}</p>
+      )}
+      {notice && (
+        <p className="mb-3 text-sm text-amber-600">{notice}</p>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading...</p>

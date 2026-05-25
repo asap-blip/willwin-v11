@@ -18,6 +18,7 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
   const [durationMinutes, setDurationMinutes] = useState(30)
   const [price, setPrice] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const isEdit = service !== null
 
@@ -27,27 +28,31 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
       setDurationMinutes(service?.duration_minutes ?? 30)
       setPrice(service?.price ?? 0)
       setSaving(false)
+      setError(null)
     }
   }, [open, service])
 
   async function handleSave() {
     if (!name.trim()) return
     setSaving(true)
+    setError(null)
 
-    if (isEdit && service) {
-      // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-      await supabase
-        .from('services')
-        .update({ name: name.trim(), duration_minutes: durationMinutes, price })
-        .eq('id', service.id)
-    } else {
-      // TODO: include tenant_id when tenant_id column exists
-      await supabase
-        .from('services')
-        .insert({ name: name.trim(), duration_minutes: durationMinutes, price, is_active: true })
-    }
+    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+    const { error: saveErr } =
+      isEdit && service
+        ? await supabase
+            .from('services')
+            .update({ name: name.trim(), duration_minutes: durationMinutes, price })
+            .eq('id', service.id)
+        : await supabase
+            .from('services')
+            .insert({ name: name.trim(), duration_minutes: durationMinutes, price, is_active: true })
 
     setSaving(false)
+    if (saveErr) {
+      setError(saveErr.message)
+      return
+    }
     onSaved()
     onClose()
   }
@@ -100,6 +105,9 @@ export function ServiceModal({ open, service, onClose, onSaved }: ServiceModalPr
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </fieldset>
+
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
         {/* Footer */}
