@@ -54,6 +54,7 @@ export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
   const [color, setColor] = useState(COLOR_PALETTE[0].hex)
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5, 6])
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const isEdit = member !== null
 
@@ -65,6 +66,7 @@ export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
         member ? parseWorkingDays(member.working_days) : parseWorkingDays(DEFAULT_WORKING_DAYS),
       )
       setSaving(false)
+      setError(null)
     }
   }, [open, member])
 
@@ -77,23 +79,26 @@ export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
   async function handleSave() {
     if (!name.trim()) return
     setSaving(true)
+    setError(null)
 
     const workingDaysStr = serializeWorkingDays(workingDays)
 
-    if (isEdit && member) {
-      // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
-      await supabase
-        .from('team_members')
-        .update({ name: name.trim(), color, working_days: workingDaysStr })
-        .eq('id', member.id)
-    } else {
-      // TODO: include tenant_id when tenant_id column exists
-      await supabase
-        .from('team_members')
-        .insert({ name: name.trim(), color, is_active: true, working_days: workingDaysStr })
-    }
+    // TODO: scope to .eq('tenant_id', tenantId) when tenant_id column exists
+    const { error: saveErr } =
+      isEdit && member
+        ? await supabase
+            .from('team_members')
+            .update({ name: name.trim(), color, working_days: workingDaysStr })
+            .eq('id', member.id)
+        : await supabase
+            .from('team_members')
+            .insert({ name: name.trim(), color, is_active: true, working_days: workingDaysStr })
 
     setSaving(false)
+    if (saveErr) {
+      setError(saveErr.message)
+      return
+    }
     onSaved()
     onClose()
   }
@@ -166,6 +171,8 @@ export function TechModal({ open, member, onClose, onSaved }: TechModalProps) {
               })}
             </div>
           </fieldset>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
 
         {/* Footer */}
