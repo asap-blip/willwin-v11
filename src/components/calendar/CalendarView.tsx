@@ -157,7 +157,7 @@ export function CalendarView({
 
   function handleNewBookingButton() {
     // Default to first available tech today and the open time when launched from TopBar
-    openModal(firstAvailableTech?.id ?? teamMembers[0]?.id ?? '', hoursForDay.open_time)
+    openModal(firstAvailableTech?.id ?? teamMembers[0]?.id ?? '', hoursForDay.open_time ?? '09:00')
   }
 
   function handleBookingClick(bookingId: string) {

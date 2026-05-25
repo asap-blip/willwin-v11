@@ -96,7 +96,7 @@ export function HoursTab() {
     setError(null)
 
     for (const row of rows) {
-      if (row.is_open && row.open_time >= row.close_time) {
+      if (row.is_open && row.open_time && row.close_time && row.open_time >= row.close_time) {
         setError(`${DAY_NAMES[row.day_of_week]}: open time must be before close time.`)
         setSaving(false)
         return
@@ -252,7 +252,7 @@ export function HoursTab() {
                     </td>
                     <td className="px-4 py-2.5">
                       <select
-                        value={row.open_time}
+                        value={row.open_time ?? ''}
                         disabled={!row.is_open}
                         onChange={(e) =>
                           updateRow(row.day_of_week, { open_time: e.target.value })
@@ -268,7 +268,7 @@ export function HoursTab() {
                     </td>
                     <td className="px-4 py-2.5">
                       <select
-                        value={row.close_time}
+                        value={row.close_time ?? ''}
                         disabled={!row.is_open}
                         onChange={(e) =>
                           updateRow(row.day_of_week, { close_time: e.target.value })
@@ -336,7 +336,7 @@ export function HoursTab() {
                       <div className="flex items-center gap-2">
                         <span
                           className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: tech.color }}
+                          style={{ backgroundColor: tech.color ?? undefined }}
                         />
                         <span className="font-medium">{tech.name}</span>
                       </div>

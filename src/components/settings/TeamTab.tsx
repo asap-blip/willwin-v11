@@ -91,7 +91,7 @@ export function TeamTab() {
                     <div className="flex items-center gap-2">
                       <span
                         className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: tm.color }}
+                        style={{ backgroundColor: tm.color ?? undefined }}
                       />
                       {tm.name}
                     </div>

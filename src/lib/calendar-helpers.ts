@@ -92,8 +92,10 @@ export function roundToSlot(time: string): string {
 // ─── Business hours helpers (T12) ──────────────────────────────────────────
 
 // Generate 30-minute slot labels from openTime to closeTime, inclusive of close.
-// Both inputs are "HH:MM" strings; never new Date().
-export function generateTimeSlots(openTime: string, closeTime: string): string[] {
+// Both inputs are "HH:MM" strings; never new Date(). Null inputs (closed days
+// have null open/close in the DB) yield an empty slot list.
+export function generateTimeSlots(openTime: string | null, closeTime: string | null): string[] {
+  if (!openTime || !closeTime) return []
   const slots: string[] = []
   const startMin = parseInt(openTime.slice(0, 2), 10) * 60 + parseInt(openTime.slice(3, 5), 10)
   const endMin = parseInt(closeTime.slice(0, 2), 10) * 60 + parseInt(closeTime.slice(3, 5), 10)
@@ -106,15 +108,17 @@ export function generateTimeSlots(openTime: string, closeTime: string): string[]
 }
 
 // Pixel offset of a HH:MM time relative to a grid that starts at openTime.
-export function timeToOffsetFrom(time: string, openTime: string): number {
+// A null openTime (closed day) anchors at 0 — callers gate rendering on is_open.
+export function timeToOffsetFrom(time: string, openTime: string | null): number {
   const tMin = parseInt(time.slice(0, 2), 10) * 60 + parseInt(time.slice(3, 5), 10)
-  const oMin = parseInt(openTime.slice(0, 2), 10) * 60 + parseInt(openTime.slice(3, 5), 10)
+  const oMin = openTime ? parseInt(openTime.slice(0, 2), 10) * 60 + parseInt(openTime.slice(3, 5), 10) : 0
   return ((tMin - oMin) / 30) * SLOT_HEIGHT
 }
 
 // Current-time red line offset for a grid running openTime → closeTime.
-// Returns null when "now" is outside the open window.
-export function getCurrentTimeOffsetFrom(openTime: string, closeTime: string): number | null {
+// Returns null when "now" is outside the open window or the day is closed.
+export function getCurrentTimeOffsetFrom(openTime: string | null, closeTime: string | null): number | null {
+  if (!openTime || !closeTime) return null
   const now = new Date()
   const cur = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   if (cur < openTime || cur >= closeTime) return null
@@ -129,7 +133,7 @@ export function getDayOfWeek(dateStr: string): number {
 
 // Does this tech have a tech_availability row for the given day of week?
 // Single source of truth (T12) — replaces the legacy team_members.working_days field.
-import type { TechAvailability } from './types'
+import type { TechAvailability } from '@/types/booking'
 export function isTechAvailable(
   availabilities: TechAvailability[],
   teamMemberId: string,
